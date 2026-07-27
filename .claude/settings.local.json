@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git ls-remote:*)",
+      "Bash(git -C \"C:/Users/PATRICIA/Desktop/Projects/mmmis\" status)",
+      "Bash(git rev-parse:*)",
+      "Bash(git -C \"C:/Users/PATRICIA\" branch -a)",
+      "Bash(git -C \"C:/Users/PATRICIA\" log --oneline --all -5)",
+      "Bash(curl:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

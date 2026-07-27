@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light theme - Military / Olive accent */
+    --background: 60 20% 98%;
+    --foreground: 100 25% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 100 25% 12%;
+
+    --primary: 95 35% 30%;          /* olive-700 */
+    --primary-foreground: 60 30% 96%;
+
+    --secondary: 95 25% 90%;
+    --secondary-foreground: 100 25% 18%;
+
+    --muted: 95 15% 94%;
+    --muted-foreground: 100 12% 35%;
+
+    --accent: 95 30% 88%;
+    --accent-foreground: 100 25% 18%;
+
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 95 15% 85%;
+    --input: 95 15% 88%;
+    --ring: 95 35% 30%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Dark theme - Tactical */
+    --background: 220 30% 6%;
+    --foreground: 60 15% 92%;
+
+    --card: 220 25% 9%;
+    --card-foreground: 60 15% 92%;
+
+    --primary: 95 35% 50%;            /* olive-500 */
+    --primary-foreground: 220 30% 8%;
+
+    --secondary: 220 20% 14%;
+    --secondary-foreground: 60 15% 92%;
+
+    --muted: 220 20% 14%;
+    --muted-foreground: 220 12% 65%;
+
+    --accent: 220 20% 18%;
+    --accent-foreground: 60 15% 92%;
+
+    --destructive: 0 65% 45%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 20% 18%;
+    --input: 220 20% 18%;
+    --ring: 95 35% 50%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

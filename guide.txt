@@ -1,0 +1,714 @@
+Absolutely. Since you're using **Claude Code**, the prompt should read like a **Software Requirements Specification (SRS)** rather than just "build me an app." Claude performs much better when it understands the business process, user roles, database relationships, and expected workflow.
+
+Below is a prompt you can give Claude. This is written as if you are the project owner instructing the lead software engineer.
+
+---
+
+# PROMPT FOR CLAUDE
+
+## Project Name
+
+**Military Mess Management Information System (MMMIS)**
+
+---
+
+# Overview
+
+I want to build a modern web application that completely digitizes the management of a military mess bar.
+
+The current system is paper-based and consists of:
+
+* Daily Stock Sheets
+* CHIT records (Cash Held In Trust)
+* CHIT Recovery records
+* Individual Member Ledger Books
+* Treasurer Accounting Book
+
+The goal is **not to change the workflow** but to digitize it while maintaining the exact terminology and procedures currently used.
+
+The system must be designed to eliminate manual calculations, reduce disputes, improve accountability, and generate financial reports automatically.
+
+---
+
+# Existing Workflow
+
+## Daily Operations
+
+Every day the Barman opens the bar.
+
+The Barman records stock using a Stock Sheet.
+
+The Stock Sheet contains these exact fields:
+
+* Stock BF
+* Stock RCV
+* Total Stock
+* Allergy
+* Sold
+* Stock CF
+* Price
+* Total
+
+Do NOT rename these fields.
+
+These names must remain exactly as they are.
+
+---
+
+## Meaning of the Fields
+
+Stock BF
+
+Stock Brought Forward from previous day.
+
+Stock RCV
+
+Stock Received during the day.
+
+Total Stock
+
+Automatically calculated.
+
+Total Stock = Stock BF + Stock RCV
+
+Allergy
+
+Items allocated for non-sale purposes according to current military mess procedure.
+
+Sold
+
+Quantity sold.
+
+Includes both Cash Sales and CHIT Sales.
+
+Stock CF
+
+Closing physical stock.
+
+Price
+
+Selling price.
+
+Total
+
+Sold × Price.
+
+---
+
+# Sales
+
+Sales are either
+
+Cash
+
+or
+
+CHIT
+
+CHIT means
+
+Cash Held In Trust.
+
+Members obtain drinks on credit and pay later.
+
+---
+
+# CHIT Process
+
+When a member buys on CHIT:
+
+The Barman searches for the member.
+
+The member confirms the transaction using
+
+Service Number
+
+Password or PIN
+
+The member authorizes the transaction.
+
+The system records
+
+Member
+
+Barman
+
+Date
+
+Time
+
+Items
+
+Amount
+
+Device
+
+Audit Log
+
+The amount is automatically added to the member's CHIT balance.
+
+No duplicate entry should be required.
+
+---
+
+# CHIT Recovery
+
+Members later pay their outstanding CHIT.
+
+Payment may be
+
+Cash
+
+Payslip Deduction
+
+Manual Recovery
+
+The payment automatically
+
+reduces the member's outstanding balance
+
+updates Treasurer reports
+
+updates Cash at Hand
+
+records payment history
+
+---
+
+# Individual Ledger
+
+Every member has an electronic ledger.
+
+Current paper format
+
+Date
+
+Description
+
+Amount
+
+Payment
+
+Balance
+
+The system should generate this automatically.
+
+---
+
+# Expenses
+
+Money from bar sales is also used for Unit Administration.
+
+Sometimes money is released by the Barman.
+
+Sometimes by the Treasurer.
+
+Every expense must contain
+
+Date
+
+Description
+
+Amount
+
+Released By
+
+Purpose
+
+Remarks
+
+Expense reduces Cash at Hand.
+
+Expenses should never affect stock.
+
+---
+
+# Cash at Hand
+
+Cash at Hand must always be calculated automatically.
+
+Cash at Hand =
+
+Opening Cash
+
+*
+
+Cash Sales
+
+*
+
+CHIT Recovery
+
+*
+
+Expense
+
+The Barman should verify the physical cash against the system balance during closing.
+
+---
+
+# Profit & Loss
+
+The system must automatically calculate
+
+Daily Profit
+
+Weekly Profit
+
+Monthly Profit
+
+Yearly Profit
+
+The calculation should consider
+
+Cash Sales
+
+CHIT Sales
+
+CHIT Recovery
+
+Expenses
+
+Current Stock Value
+
+Outstanding CHIT
+
+The committee should always know
+
+whether the bar is growing
+
+or making losses.
+
+---
+
+# Users
+
+There are four user roles.
+
+Administrator
+
+Treasurer
+
+Barman
+
+Member
+
+---
+
+# Administrator
+
+Can
+
+Manage Users
+
+Assign Roles
+
+Manage Products
+
+Manage Prices
+
+Manage Stock
+
+View Reports
+
+Manage Settings
+
+Reset Passwords
+
+Backup Database
+
+---
+
+# Treasurer
+
+Can
+
+View all financial records
+
+Manage CHIT Recovery
+
+Manage Expenses
+
+Manage Members
+
+View Reports
+
+Approve Adjustments
+
+Generate Statements
+
+View Outstanding CHIT
+
+Manage Stock Receipts
+
+---
+
+# Barman
+
+Can
+
+Record Sales
+
+Record CHIT
+
+Record Cash Sales
+
+Update Stock Sheet
+
+Enter Closing Stock
+
+Record Expenses
+
+Print Daily Summary
+
+Cannot edit historical records.
+
+---
+
+# Member
+
+Can
+
+Login
+
+View CHIT Balance
+
+View Purchase History
+
+View Payment History
+
+View Ledger
+
+View Statement
+
+Change Password
+
+Cannot modify records.
+
+---
+
+# Authentication
+
+Members log in using
+
+Service Number
+
+Password
+
+Service Number must be unique.
+
+Passwords must be encrypted.
+
+JWT Authentication.
+
+Role Based Access Control.
+
+---
+
+# Dashboard
+
+Administrator Dashboard
+
+Today's Sales
+
+Outstanding CHIT
+
+Cash at Hand
+
+Current Stock Value
+
+Top Selling Products
+
+Recent Activity
+
+---
+
+Treasurer Dashboard
+
+Cash Sales
+
+CHIT Sales
+
+CHIT Recovery
+
+Expenses
+
+Cash at Hand
+
+Outstanding Members
+
+---
+
+Barman Dashboard
+
+Today's Stock Sheet
+
+Quick Sale
+
+Quick CHIT
+
+Closing Stock
+
+Expense Entry
+
+---
+
+Member Dashboard
+
+Outstanding CHIT
+
+Recent Purchases
+
+Recent Payments
+
+Statement
+
+---
+
+# Products
+
+Products include
+
+Beer
+
+Soft Drinks
+
+Water
+
+Food
+
+Any future products
+
+Every product contains
+
+Name
+
+Category
+
+Buying Price
+
+Selling Price
+
+Opening Stock
+
+Minimum Stock
+
+Barcode (optional)
+
+Status
+
+---
+
+# Stock Module
+
+Automatically maintain
+
+Stock BF
+
+Stock RCV
+
+Total Stock
+
+Allergy
+
+Sold
+
+Stock CF
+
+Price
+
+Total
+
+Generate printable Daily Stock Sheet.
+
+---
+
+# Reports
+
+Generate
+
+Daily Sales Report
+
+Daily Stock Sheet
+
+CHIT Report
+
+CHIT Recovery Report
+
+Member Statement
+
+Expense Report
+
+Cash at Hand Report
+
+Profit and Loss Report
+
+Outstanding CHIT Report
+
+Top Selling Products
+
+Stock Valuation Report
+
+Audit Log
+
+Reports must be printable as PDF.
+
+Export to Excel.
+
+---
+
+# Audit Trail
+
+Every action must be logged.
+
+Who
+
+What
+
+When
+
+Old Value
+
+New Value
+
+Device
+
+IP Address
+
+Timestamp
+
+Deleted records should never disappear.
+
+Use soft deletes.
+
+---
+
+# Database
+
+Use PostgreSQL.
+
+Suggested tables
+
+users
+
+roles
+
+members
+
+products
+
+stock_entries
+
+stock_sheet
+
+sales
+
+sale_items
+
+chit
+
+chit_payments
+
+expenses
+
+ledger
+
+audit_logs
+
+settings
+
+daily_summary
+
+---
+
+# UI
+
+Modern.
+
+Military style.
+
+Dark and Light Mode.
+
+Responsive.
+
+Desktop First.
+
+Works on Mobile.
+
+Simple enough for non-technical users.
+
+---
+
+# Technology Stack
+
+Use
+
+React
+
+TypeScript
+
+Vite
+
+TailwindCSS
+
+shadcn/ui
+
+React Query
+
+React Hook Form
+
+Zod
+
+Supabase
+
+PostgreSQL
+
+Supabase Auth
+
+Supabase Storage
+
+Recharts
+
+React Router
+
+PDF Export
+
+Excel Export
+
+---
+
+# Coding Standards
+
+Use Clean Architecture.
+
+Use reusable components.
+
+Use feature-based folders.
+
+Strong TypeScript typing.
+
+Never duplicate code.
+
+Follow SOLID principles.
+
+Create documentation.
+
+Write maintainable code.
+
+---
+
+# Final Goal
+
+I want this to become a professional Military Mess Management Information System that can eventually be deployed across multiple military units.
+
+The system should replace all manual books while preserving the existing workflow and terminology. It must provide transparency, accountability, accurate financial reporting, stock control, CHIT management, member self-service, and complete auditability.
+
+---
+
+## My recommendation
+
+Since you already have experience with **Z-Quiz**, I'd ask Claude to build this in **phases** rather than all at once. At the end of the prompt, add these instructions:
+
+> Build this application incrementally. Do not generate the entire system in one response. Start by designing the complete database schema and relationships. Then build authentication and user management. Next implement the Stock Module, followed by the Sales & CHIT Module, Treasurer Module, Member Portal, Reporting Module, and finally the Administration Module. After each phase, verify that the architecture remains scalable and maintainable before proceeding.
+
+This phased approach will produce a much cleaner, more reliable application than asking Claude to generate everything in one go.
