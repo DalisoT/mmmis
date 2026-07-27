@@ -50,6 +50,7 @@ export function PointOfSalePage() {
   const [confirmed, setConfirmed] = useState<{ saleId: string; total: number } | null>(null);
 
   const createSale = useCreateSale();
+  const createExpense = useCreateExpense();
   const createAuth = useCreateChitAuthorization();
   const manualOverride = useManualOverrideAuthorization();
   const cancelAuth = useCancelChitAuthorization();
@@ -377,8 +378,12 @@ export function PointOfSalePage() {
       <Dialog open={showExpense} onOpenChange={setShowExpense}>
         <ExpenseDialog
           onSubmit={async (vals) => {
-            await useCreateExpense().mutateAsync(vals);
-            setShowExpense(false);
+            try {
+              await createExpense.mutateAsync(vals);
+              setShowExpense(false);
+            } catch (e: any) {
+              toast.error(`Expense save failed: ${e.message ?? String(e)}`);
+            }
           }}
           onCancel={() => setShowExpense(false)}
         />
