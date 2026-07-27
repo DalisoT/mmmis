@@ -1,0 +1,40 @@
+-- 0021_partial_index_rollback_note.sql
+--
+-- This is a documentation-only file. It does not run any DDL.
+-- It exists because the DOWN block of 0020_soft_delete_unique_index.sql
+-- describes a rollback that, if naively uncommented, would re-create a
+-- free unique index rather than the original CONSTRAINT. Other tooling
+-- (RLS policy planners, the PostgREST column introspection, certain
+-- Supabase Dashboard views) treat index-backed-uniqueness and a named
+-- UNIQUE constraint as different things, so the rollback should restore
+-- the constraint form to match 0001_init.sql.
+--
+-- To roll back 0020 manually, run the following in the Supabase SQL
+-- editor as a fresh migration. Do NOT uncomment the DOWN block of 0020
+-- verbatim — it uses `create unique index` which leaves you without a
+-- named constraint.
+--
+-- Equivalent manual rollback (recommended):
+--
+--   drop index if exists public.users_service_number_active_key;
+--   alter table public.users
+--     add constraint users_service_number_key unique (service_number);
+--
+-- Equivalent manual rollback (free index, not recommended):
+--
+--   drop index if exists public.users_service_number_active_key;
+--   create unique index users_service_number_key
+--     on public.users (service_number);
+--
+-- Verification after rollback:
+--
+--   select conname, contype
+--   from pg_constraint
+--   where conrelid = 'public.users'::regclass
+--     and conname = 'users_service_number_key';
+--
+--   -- expect contype = 'u' (unique constraint) for the recommended form.
+--   -- expect zero rows for the free-index form.
+
+-- No DDL below. This file is intentionally a no-op.
+select '0021_partial_index_rollback_note.sql is documentation only' as note;
