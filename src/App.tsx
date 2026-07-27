@@ -26,6 +26,7 @@ import { MemberStatementPage as PortalStatementPage } from '@/features/member/Me
 import { MemberPurchasesPage } from '@/features/member/MemberPurchasesPage';
 import { MemberPaymentsPage } from '@/features/member/MemberPaymentsPage';
 import { MemberProfilePage } from '@/features/member/MemberProfilePage';
+import { AuthorizeChitPage } from '@/features/member/AuthorizeChitPage';
 import { AppShell } from '@/components/layout/AppShell';
 import { AuditLogPage } from '@/features/admin/AuditLogPage';
 import { AuditLogExportPage } from '@/features/admin/AuditLogExportPage';
@@ -49,6 +50,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/forbidden" element={<ForbiddenPage />} />
+        <Route path="/portal/authorize/:requestId" element={<AuthorizeChitPage />} />
 
         <Route
           element={

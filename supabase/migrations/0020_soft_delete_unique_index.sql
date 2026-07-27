@@ -23,8 +23,15 @@
 -- UP
 -- ---------------------------------------------------------------------------
 
--- Drop the old index if it exists. Index name comes from the original
--- constraint; if you renamed it earlier, edit the IF EXISTS check below.
+-- Drop the old constraint (and its backing index). 2BP01 means we cannot
+-- drop the index directly because the constraint depends on it; dropping
+-- the constraint first removes both. The constraint name is the same as
+-- the index name in 0001_init.sql; if you renamed it, edit below.
+alter table public.users
+  drop constraint if exists users_service_number_key;
+
+-- Belt-and-braces: in case the original migration used a free-standing
+-- index rather than a constraint, drop that too.
 drop index if exists public.users_service_number_key;
 
 -- Recreate as a partial unique index that ignores soft-deleted rows.
