@@ -6,6 +6,11 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Bulk-member seed artifacts (plaintext temp passwords — never commit).
+bulk_member_passwords.md
+__seed_admin.tmp
+
+
 # Editor
 .vscode/*
 !.vscode/extensions.json
