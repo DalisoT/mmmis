@@ -11,14 +11,17 @@
 -- This migration promotes service_number='109136' (LCPL MUNAHAMBALA P) from
 -- 'member' to 'barman'. It is intentionally hard-coded to one row:
 --
---   * It is reversible — re-running with the 'pinned' variant below would
---     flip them back to 'member'.
+--   * It is reversible — change 'barman' to 'member' to flip back.
 --   * It is idempotent — guarded by an existence check on the role row and
 --     a no-op WHEN the user is already a barman.
---   * It writes an audit_log entry would require auth.uid(); see the
---     in-line note in the DO block — instead we let the SQL Editor
---     history record the change. future work: route this through a
---     SECURITY DEFINER audit helper that doesn't depend on auth.uid().
+--
+-- IMPORTANT — schema types:
+--   public.roles.id  is smallint primary key. (See migration 0001.)
+--   public.users.role_id is smallint not null references public.roles(id).
+-- Earlier revisions of this file declared role ids as uuid, which made the
+-- comparison `v_user.role_id = v_barman_id` raise 22P02 ("invalid input
+-- syntax for type uuid") when admin tools had left role_id as a numeric
+-- smallint. The declare block now uses smallint throughout.
 --
 -- Deploy with:  supabase db push
 -- Or paste into the Supabase SQL Editor. Re-running is safe.
@@ -28,12 +31,13 @@ set search_path = public;
 
 -- ---------------------------------------------------------------------------
 -- 1. Resolve the barman role id up-front; abort cleanly if missing.
+--    All role ids are smallint per migration 0001.
 -- ---------------------------------------------------------------------------
 
 do $$
 declare
-  v_barman_id   uuid;
-  v_member_id   uuid;
+  v_barman_id   smallint;
+  v_member_id   smallint;
   v_user        public.users%rowtype;
 begin
   select id into v_barman_id from public.roles where code = 'barman';
@@ -58,16 +62,17 @@ begin
     return;
   end if;
 
+  -- Both sides are smallint now; equality is a plain int comparison.
   if v_user.role_id = v_barman_id then
     raise notice '109136 is already a barman — no change';
     return;
   end if;
 
-  -- Capture the prior role for the audit row.
   update public.users
      set role_id = v_barman_id
    where id = v_user.id;
 
-  raise notice 'promoted service_number=% to barman (was member)', v_user.service_number;
+  raise notice 'promoted service_number=% to barman (was role_id=%, now role_id=%)',
+    v_user.service_number, v_user.role_id, v_barman_id;
 end
 $$;
