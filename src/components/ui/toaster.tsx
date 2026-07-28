@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from '@/components/ui/toast';
+import { subscribeToasts } from '@/lib/toast';
 
 export type ToastVariant = 'default' | 'success' | 'error' | 'info' | 'destructive';
 
@@ -55,6 +56,12 @@ export function Toaster({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<ToasterContextValue>(() => ({ toasts, show, dismiss }), [toasts, show, dismiss]);
+
+  // Bridge the module-level @/lib/toast helper into this provider. The
+  // helper cannot call useContext directly because callers (e.g. mutation
+  // .catch handlers) run outside any React render — that was the source
+  // of React error #321 ("useContext called outside a <Provider>").
+  useEffect(() => subscribeToasts((opts) => show(opts)), [show]);
 
   return (
     <ToasterContext.Provider value={value}>
