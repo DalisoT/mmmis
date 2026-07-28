@@ -587,6 +587,14 @@ export function useRejectChitAuthorization() {
  * Buyer-side helper: call the chit-authorize Edge Function with the buyer's
  * current JWT. The Edge Function validates the password against Supabase
  * Auth and flips the row to 'authorized'.
+ *
+ * Distinguishes three failure modes so the buyer's phone can show a
+ * useful message instead of a generic "Not signed in":
+ *   - 'Not signed in'       — no session at all (buyer must log in)
+ *   - 'Session expired'     — session exists but the access token is past
+ *                             expires_at (auto-refresh failed; ask buyer
+ *                             to sign in again)
+ *   - '<server message>'    — Edge Function rejected the request
  */
 export async function callChitAuthorizeEdgeFunction(
   requestId: string,
@@ -594,8 +602,23 @@ export async function callChitAuthorizeEdgeFunction(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const { data: sess } = await supabase.auth.getSession();
-  const token = sess.session?.access_token;
-  if (!token) return { ok: false, error: 'Not signed in' };
+  if (!sess.session) {
+    return { ok: false, error: 'Not signed in' };
+  }
+  const token = sess.session.access_token;
+  const expiresAtMs = sess.session.expires_at ? sess.session.expires_at * 1000 : 0;
+  if (expiresAtMs && expiresAtMs < Date.now()) {
+    // Token is expired. Try one refresh before bailing — sometimes
+    // getSession() returns a session whose access_token is stale even
+    // though the refresh token would still issue a new one.
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session?.access_token) {
+      // Recurse with the refreshed session by retrying the fetch once.
+      // (Avoids duplicating the fetch body below.)
+      return callChitAuthorizeEdgeFunction(requestId, password);
+    }
+    return { ok: false, error: 'Session expired — please sign in again' };
+  }
   try {
     const res = await fetch(`${url}/functions/v1/chit-authorize`, {
       method: 'POST',

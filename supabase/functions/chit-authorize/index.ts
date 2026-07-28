@@ -69,7 +69,15 @@ Deno.serve(async (req) => {
 
   const { data: buyerData, error: buyerErr } = await userClient.auth.getUser();
   if (buyerErr || !buyerData.user) {
-    return json({ error: 'Not signed in' }, 401);
+    // Distinguish "no Authorization header" from "header present but
+    // token rejected" so the SPA can give the buyer a precise message
+    // (re-authenticate vs. try again).
+    const reason = !auth
+      ? 'Missing Authorization header'
+      : buyerErr?.message
+        ? `Invalid session: ${buyerErr.message}`
+        : 'Not signed in';
+    return json({ error: reason }, 401);
   }
 
   let body: RequestBody;
