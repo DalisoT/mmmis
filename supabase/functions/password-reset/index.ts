@@ -17,14 +17,38 @@ interface ResetRequest {
 
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://mmmis.example.com';
 
+// CORS — the password-reset flow is triggered from the unauthenticated
+// /login page in the SPA (mmmis.vercel.app). Without these headers the
+// browser's preflight OPTIONS gets a 405 with no Access-Control-Allow-Origin
+// and `fetch` rejects with "Failed to fetch". See chit-authorize for the
+// matching pattern (commit 62fecc2).
+const corsHeaders: Record<string, string> = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'POST, OPTIONS',
+  'access-control-allow-headers': 'authorization, content-type, apikey, x-client-info',
+  'access-control-max-age': '86400',
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json', ...corsHeaders },
+  });
+}
+
 Deno.serve(async (req) => {
+  // CORS preflight — short-circuit before the POST handler.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+    return json({ error: 'Method not allowed' }, 405);
   }
 
   const body: ResetRequest = await req.json();
   if (!body.service_number) {
-    return new Response(JSON.stringify({ error: 'service_number required' }), { status: 400 });
+    return json({ error: 'service_number required' }, 400);
   }
 
   // Service-role client because we have to look up the email without auth.
@@ -42,14 +66,10 @@ Deno.serve(async (req) => {
 
   if (lookupErr || !userRow?.email) {
     // Do not leak existence. Return 200 either way.
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { 'content-type': 'application/json' },
-    });
+    return json({ ok: true });
   }
   if (userRow.is_active === false) {
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { 'content-type': 'application/json' },
-    });
+    return json({ ok: true });
   }
 
   const { error } = await admin.auth.admin.generateLink({
@@ -58,10 +78,7 @@ Deno.serve(async (req) => {
     options: { redirectTo: `${APP_URL}/login?reset=1` },
   });
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 'content-type': 'application/json' },
-    });
+    return json({ error: error.message }, 500);
   }
 
   // Audit (best-effort; RPC expects authenticated user, so we use the
@@ -75,7 +92,5 @@ Deno.serve(async (req) => {
     // ignore audit failure
   }
 
-  return new Response(JSON.stringify({ ok: true }), {
-    headers: { 'content-type': 'application/json' },
-  });
+  return json({ ok: true });
 });

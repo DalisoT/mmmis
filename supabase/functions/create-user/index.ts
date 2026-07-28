@@ -34,6 +34,24 @@ interface CreateRequest {
 
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://mmmis.example.com';
 
+// CORS — admin-only, but the SPA at mmmis.vercel.app calls this from the
+// browser. Without these headers the preflight OPTIONS gets a 405 and
+// `fetch` rejects with "Failed to fetch". See chit-authorize for the
+// matching pattern (commit 62fecc2).
+const corsHeaders: Record<string, string> = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'POST, OPTIONS',
+  'access-control-allow-headers': 'authorization, content-type, apikey, x-client-info',
+  'access-control-max-age': '86400',
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json', ...corsHeaders },
+  });
+}
+
 function genTempPassword(): string {
   // 16 chars, mixed classes. Cryptographically secure.
   const alpha = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz';
@@ -109,11 +127,16 @@ async function sendCredentialsEmail(
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+  // CORS preflight — short-circuit before the POST handler.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   const auth = req.headers.get('authorization') ?? '';
   if (!auth.toLowerCase().startsWith('bearer ')) {
-    return new Response('Unauthorized', { status: 401 });
+    return json({ error: 'Unauthorized' }, 401);
   }
   const userClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -121,7 +144,7 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: auth } } }
   );
   const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData.user) return new Response('Unauthorized', { status: 401 });
+  if (userErr || !userData.user) return json({ error: 'Unauthorized' }, 401);
 
   // Caller must be an administrator.
   const { data: caller } = await userClient
@@ -130,13 +153,11 @@ Deno.serve(async (req) => {
     .eq('auth_id', userData.user.id)
     .single();
   const callerRole = (caller as any)?.role?.code;
-  if (callerRole !== 'administrator') return new Response('Forbidden', { status: 403 });
+  if (callerRole !== 'administrator') return json({ error: 'Forbidden' }, 403);
 
   const body: CreateRequest = await req.json();
   if (!body.service_number || !body.email || !body.full_name || !body.role_code) {
-    return new Response(JSON.stringify({ error: 'service_number, email, full_name, role_code required' }), {
-      status: 400, headers: { 'content-type': 'application/json' },
-    });
+    return json({ error: 'service_number, email, full_name, role_code required' }, 400);
   }
 
   const admin = createClient(
@@ -148,9 +169,7 @@ Deno.serve(async (req) => {
   const { data: role, error: roleErr } = await admin
     .from('roles').select('id, name').eq('code', body.role_code).single();
   if (roleErr || !role) {
-    return new Response(JSON.stringify({ error: 'Invalid role_code' }), {
-      status: 400, headers: { 'content-type': 'application/json' },
-    });
+    return json({ error: 'Invalid role_code' }, 400);
   }
 
   // 2. Create auth.users (email_confirm:true so no confirmation email is sent).
@@ -165,9 +184,7 @@ Deno.serve(async (req) => {
     },
   });
   if (createErr || !created?.user) {
-    return new Response(JSON.stringify({ error: createErr?.message ?? 'createUser failed' }), {
-      status: 400, headers: { 'content-type': 'application/json' },
-    });
+    return json({ error: createErr?.message ?? 'createUser failed' }, 400);
   }
   const authUserId = created.user.id;
 
@@ -193,9 +210,7 @@ Deno.serve(async (req) => {
   if (profileErr) {
     // Best-effort rollback.
     await admin.auth.admin.deleteUser(authUserId).catch(() => {});
-    return new Response(JSON.stringify({ error: profileErr.message }), {
-      status: 400, headers: { 'content-type': 'application/json' },
-    });
+    return json({ error: profileErr.message }, 400);
   }
 
   // 4. Email the credentials. If mail isn't configured the temp_password
@@ -222,15 +237,12 @@ Deno.serve(async (req) => {
     });
   } catch (_) { /* ignore */ }
 
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      user_id: profile.id,
-      auth_id: authUserId,
-      mailed: mail.ok,
-      mail_error: mail.ok ? null : mail.error,
-      temp_password: tempPassword,
-    }),
-    { headers: { 'content-type': 'application/json' } }
-  );
+  return json({
+    ok: true,
+    user_id: profile.id,
+    auth_id: authUserId,
+    mailed: mail.ok,
+    mail_error: mail.ok ? null : mail.error,
+    temp_password: tempPassword,
+  });
 });

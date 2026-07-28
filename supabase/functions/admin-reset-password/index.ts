@@ -18,6 +18,24 @@ interface ResetRequest {
   send_email?: boolean;       // default true
 }
 
+// CORS — admin-only, but the SPA at mmmis.vercel.app calls this from the
+// browser. Without these headers the preflight OPTIONS gets a 405 and
+// `fetch` rejects with "Failed to fetch". See chit-authorize for the
+// matching pattern (commit 62fecc2).
+const corsHeaders: Record<string, string> = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'POST, OPTIONS',
+  'access-control-allow-headers': 'authorization, content-type, apikey, x-client-info',
+  'access-control-max-age': '86400',
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json', ...corsHeaders },
+  });
+}
+
 function genTempPassword(): string {
   const alpha = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz';
   const digits = '23456789';
@@ -63,11 +81,16 @@ async function sendEmail(to: string, fullName: string, temp: string): Promise<bo
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+  // CORS preflight — short-circuit before the POST handler.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   const auth = req.headers.get('authorization') ?? '';
   if (!auth.toLowerCase().startsWith('bearer ')) {
-    return new Response('Unauthorized', { status: 401 });
+    return json({ error: 'Unauthorized' }, 401);
   }
   const userClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -75,19 +98,17 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: auth } } }
   );
   const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData.user) return new Response('Unauthorized', { status: 401 });
+  if (userErr || !userData.user) return json({ error: 'Unauthorized' }, 401);
 
   // Administrator only.
   const { data: caller } = await userClient
     .from('users').select('role:roles(code)').eq('auth_id', userData.user.id).single();
   const callerRole = (caller as any)?.role?.code;
-  if (callerRole !== 'administrator') return new Response('Forbidden', { status: 403 });
+  if (callerRole !== 'administrator') return json({ error: 'Forbidden' }, 403);
 
   const body: ResetRequest = await req.json();
   if (!body.user_id) {
-    return new Response(JSON.stringify({ error: 'user_id required' }), {
-      status: 400, headers: { 'content-type': 'application/json' },
-    });
+    return json({ error: 'user_id required' }, 400);
   }
 
   const admin = createClient(
@@ -98,17 +119,13 @@ Deno.serve(async (req) => {
   const { data: target, error: targetErr } = await admin
     .from('users').select('id, auth_id, email, full_name').eq('id', body.user_id).single();
   if (targetErr || !target?.auth_id) {
-    return new Response(JSON.stringify({ error: 'User not found' }), {
-      status: 404, headers: { 'content-type': 'application/json' },
-    });
+    return json({ error: 'User not found' }, 404);
   }
 
   const temp = body.password && body.password.length >= 8 ? body.password : genTempPassword();
   const { error: updErr } = await admin.auth.admin.updateUserById(target.auth_id, { password: temp });
   if (updErr) {
-    return new Response(JSON.stringify({ error: updErr.message }), {
-      status: 400, headers: { 'content-type': 'application/json' },
-    });
+    return json({ error: updErr.message }, 400);
   }
 
   // Flip must_reset_pw so the next login forces a change.
@@ -126,8 +143,5 @@ Deno.serve(async (req) => {
     });
   } catch (_) { /* ignore */ }
 
-  return new Response(
-    JSON.stringify({ ok: true, mailed, temp_password: temp }),
-    { headers: { 'content-type': 'application/json' } }
-  );
+  return json({ ok: true, mailed, temp_password: temp });
 });

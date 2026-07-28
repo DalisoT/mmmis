@@ -1,13 +1,18 @@
 // Supabase Edge Function: invite-email
 //
-// Sends a branded invite email to a new staff member. Triggered by an
-// authenticated POST from the Users page. The caller must be an
+// Sends a Supabase Auth invite email to a new staff member. Triggered by
+// an authenticated POST from the Users page. The caller must be an
 // administrator (checked via the JWT role claim against public.users).
+//
+// Note: the invite goes through Supabase Auth's built-in
+// inviteUserByEmail(), which sends the Supabase-branded template from
+// a `supabase.io` address. This is the only email-sending path in this
+// function — there is no Mailgun call here. Branded Mailgun invites
+// (matching the create-user / admin-reset-password flow) are not
+// implemented in this Edge Function.
 //
 // Deploy:
 //   supabase functions deploy invite-email --no-verify-jwt
-// Then set the MAILGUN_API_KEY, MAILGUN_DOMAIN, MAIL_FROM secrets via:
-//   supabase secrets set MAILGUN_API_KEY=… MAILGUN_DOMAIN=… MAIL_FROM=…
 
 // @ts-nocheck  -- Edge Functions run on Deno; the type checker on the
 //                 Node/Vite side does not need to validate this file.
@@ -24,9 +29,32 @@ interface InviteRequest {
 
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://mmmis.example.com';
 
+// CORS — admin-only, but the SPA at mmmis.vercel.app calls this from the
+// browser. Without these headers the preflight OPTIONS gets a 405 and
+// `fetch` rejects with "Failed to fetch". See chit-authorize for the
+// matching pattern (commit 62fecc2).
+const corsHeaders: Record<string, string> = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'POST, OPTIONS',
+  'access-control-allow-headers': 'authorization, content-type, apikey, x-client-info',
+  'access-control-max-age': '86400',
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json', ...corsHeaders },
+  });
+}
+
 Deno.serve(async (req) => {
+  // CORS preflight — short-circuit before the POST handler.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+    return json({ error: 'Method not allowed' }, 405);
   }
 
   const auth = req.headers.get('authorization') ?? '';
@@ -39,7 +67,7 @@ Deno.serve(async (req) => {
   // 1. Verify caller is an administrator.
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr || !userData.user) {
-    return new Response('Unauthorized', { status: 401 });
+    return json({ error: 'Unauthorized' }, 401);
   }
   const { data: caller } = await supabase
     .from('users')
@@ -48,7 +76,7 @@ Deno.serve(async (req) => {
     .single();
   const callerRole = (caller as any)?.role?.code;
   if (callerRole !== 'administrator') {
-    return new Response('Forbidden', { status: 403 });
+    return json({ error: 'Forbidden' }, 403);
   }
 
   const body: InviteRequest = await req.json();
@@ -62,10 +90,7 @@ Deno.serve(async (req) => {
     redirectTo: `${APP_URL}/login`,
   });
   if (inviteErr) {
-    return new Response(JSON.stringify({ error: inviteErr.message }), {
-      status: 400,
-      headers: { 'content-type': 'application/json' },
-    });
+    return json({ error: inviteErr.message }, 400);
   }
 
   // 3. Audit it via the same RPC the client uses.
@@ -79,7 +104,5 @@ Deno.serve(async (req) => {
     },
   });
 
-  return new Response(JSON.stringify({ ok: true }), {
-    headers: { 'content-type': 'application/json' },
-  });
+  return json({ ok: true });
 });
