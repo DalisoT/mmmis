@@ -49,15 +49,28 @@ Deno.serve(async (req) => {
   }
   const token = auth.slice(7).trim();
   if (!token) return new Response('Unauthorized', { status: 401 });
+
+  // Verify the caller via GoTrue directly — bypassing the JS client's
+  // session cache, which is empty in this runtime and can short-circuit
+  // getUser() with "Auth session missing!" even when the token is valid.
+  // See chit-authorize for the full rationale.
+  const goTrueRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+    },
+  });
+  if (!goTrueRes.ok) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+  const userData = await goTrueRes.json() as { id?: string };
+  if (!userData.id) return new Response('Unauthorized', { status: 401 });
+
   const userClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_ANON_KEY')!,
     { global: { headers: { Authorization: `Bearer ${token}` } } }
   );
-  // Pass the token explicitly to bypass the userClient's empty in-memory
-  // session cache — see chit-authorize for the same fix and rationale.
-  const { data: userData, error: userErr } = await userClient.auth.getUser(token);
-  if (userErr || !userData.user) return new Response('Unauthorized', { status: 401 });
 
   const body = (await req.json().catch(() => ({}))) as { email?: string; target_user_id?: string };
   const newEmail = (body.email ?? '').trim().toLowerCase();
@@ -76,7 +89,7 @@ Deno.serve(async (req) => {
   const { data: caller, error: callerErr } = await admin
     .from('users')
     .select('id, auth_id, role:roles(code)')
-    .eq('auth_id', userData.user.id)
+    .eq('auth_id', userData.id)
     .single();
   if (callerErr || !caller) return new Response('Forbidden', { status: 403 });
   const callerRole = (caller as any)?.role?.code;

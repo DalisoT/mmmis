@@ -72,6 +72,37 @@ Deno.serve(async (req) => {
     return json({ error: 'Missing Authorization header' }, 401);
   }
 
+  // Verify the buyer is signed in by calling GoTrue's /auth/v1/user
+  // endpoint directly. We do not use `userClient.auth.getUser(token)`
+  // because that path first consults the JS client's in-memory session
+  // cache and short-circuits with "Auth session missing!" when the
+  // cache is empty (which it always is in a fresh Edge Function runtime)
+  // even though the token is structurally valid and GoTrue would accept
+  // it. Going straight to fetch guarantees the token is actually
+  // verified against the auth backend.
+  const goTrueUrl = `${Deno.env.get('SUPABASE_URL')}/auth/v1/user`;
+  const goTrueRes = await fetch(goTrueUrl, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+    },
+  });
+  if (!goTrueRes.ok) {
+    const detail = await goTrueRes.text().catch(() => '');
+    return json(
+      { error: `Invalid session: GoTrue ${goTrueRes.status}${detail ? `: ${detail.slice(0, 200)}` : ''}` },
+      401,
+    );
+  }
+  const buyerData = await goTrueRes.json() as { id?: string; user_id?: string };
+  if (!buyerData.id && !buyerData.user_id) {
+    return json({ error: 'Invalid session: empty user payload from GoTrue' }, 401);
+  }
+  // `buyerId` is intentionally unused below — the userClient (PostgREST)
+  // will resolve auth.uid() from the same JWT we just verified, and the
+  // approve_chit_authorization() RPC uses that for its ownership check.
+  // We only need to know the token was accepted, not extract the id here.
+
   // 1. Verify the buyer is signed in. We do NOT trust the email here —
   //    `auth.uid()` is the source of truth for "who is the buyer".
   const userClient = createClient(
@@ -79,14 +110,6 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_ANON_KEY')!,
     { global: { headers: { Authorization: `Bearer ${token}` } } }
   );
-
-  const { data: buyerData, error: buyerErr } = await userClient.auth.getUser(token);
-  if (buyerErr || !buyerData.user) {
-    return json(
-      { error: buyerErr?.message ? `Invalid session: ${buyerErr.message}` : 'Not signed in' },
-      401,
-    );
-  }
 
   let body: RequestBody;
   try {

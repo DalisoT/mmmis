@@ -94,19 +94,36 @@ Deno.serve(async (req) => {
   }
   const token = auth.slice(7).trim();
   if (!token) return json({ error: 'Unauthorized' }, 401);
+
+  // Verify the caller via GoTrue directly — bypassing the JS client's
+  // session cache, which is empty in this runtime and can short-circuit
+  // getUser() with "Auth session missing!" even when the token is valid.
+  // See chit-authorize for the full rationale.
+  const goTrueRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+    },
+  });
+  if (!goTrueRes.ok) {
+    const detail = await goTrueRes.text().catch(() => '');
+    return json(
+      { error: `Unauthorized: GoTrue ${goTrueRes.status}${detail ? `: ${detail.slice(0, 200)}` : ''}` },
+      401,
+    );
+  }
+  const userData = await goTrueRes.json() as { id?: string };
+  if (!userData.id) return json({ error: 'Unauthorized: empty user payload' }, 401);
+
   const userClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_ANON_KEY')!,
     { global: { headers: { Authorization: `Bearer ${token}` } } }
   );
-  // Pass the token explicitly to bypass the userClient's empty in-memory
-  // session cache — see chit-authorize for the same fix and rationale.
-  const { data: userData, error: userErr } = await userClient.auth.getUser(token);
-  if (userErr || !userData.user) return json({ error: 'Unauthorized' }, 401);
 
   // Administrator only.
   const { data: caller } = await userClient
-    .from('users').select('role:roles(code)').eq('auth_id', userData.user.id).single();
+    .from('users').select('role:roles(code)').eq('auth_id', userData.id).single();
   const callerRole = (caller as any)?.role?.code;
   if (callerRole !== 'administrator') return json({ error: 'Forbidden' }, 403);
 
