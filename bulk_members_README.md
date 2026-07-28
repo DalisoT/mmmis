@@ -190,3 +190,29 @@ The migration is reversible by deleting the function bodies and dropping the
 staging table. Note that the `fn_handle_new_auth_user()`
 change keeps self-registration (`self_register='1'`) working exactly as
 before, so reverting the staging table does not affect member sign-up.
+
+## Default role and how to grant one a barman role
+
+The bulk seed (0023 + `bulk-seed-members/index.ts`) inserts every newly-seeded
+user with `public.users.role_id` pointing at the `member` row of
+`public.roles`. That is the safest default — members cannot begin CHIT
+sales, run reports, or modify ledger entries — but it means **no seeded
+account can be used to test the CHIT flow out of the box**, because
+`create_chit_authorization()` (migration 0022 lines 143-146) requires
+`role.code in ('administrator','treasurer','barman')`.
+
+To grant one seeded member the barman role for testing, run the migration:
+
+```sql
+-- supabase/migrations/0024_promote_109136_to_barman.sql
+-- promotes service_number='109136' (LCPL MUNAHAMBALA P) to barman
+```
+
+It is idempotent (no-op when already a barman) and reversible (replace
+`'barman'` with `'member'` to flip back). Re-run after any new bulk seed
+if you want to keep that account as the test barman.
+
+The promotion changes `public.users.role_id` immediately. The affected
+person must sign in fresh at `/login` to get a JWT that the CHIT RPC
+will accept — the role check runs through `auth.uid()` at request time,
+not from a cached role claim.
