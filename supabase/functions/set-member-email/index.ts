@@ -72,7 +72,11 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: `Bearer ${token}` } } }
   );
 
-  const body = (await req.json().catch(() => ({}))) as { email?: string; target_user_id?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    email?: string;
+    target_user_id?: string;
+    current_password?: string;
+  };
   const newEmail = (body.email ?? '').trim().toLowerCase();
   if (!isValidEmail(newEmail)) {
     return new Response(JSON.stringify({ error: 'invalid email' }), {
@@ -84,6 +88,53 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
+
+  // Self-service path: caller must re-enter their current password. This
+  // closes the "stolen JWT on an old phone" hole — anyone holding a valid
+  // token alone cannot redirect the account. Administrators using the
+  // recovery path (target_user_id supplied, implying they're acting on a
+  // different user) bypass this check because they're already gated by the
+  // staff role check below; in practice the recovery path is invoked from
+  // the admin UI which itself requires a live session.
+  if (!body.target_user_id) {
+    if (!body.current_password) {
+      return new Response(JSON.stringify({ error: 'current_password required' }), {
+        status: 400, headers: { 'content-type': 'application/json' },
+      });
+    }
+    // Resolve caller's email first so we can verify against GoTrue.
+    const { data: callerForPw } = await admin
+      .from('users')
+      .select('email')
+      .eq('auth_id', userData.id)
+      .maybeSingle();
+    if (!callerForPw?.email) {
+      return new Response(JSON.stringify({ error: 'caller email not found' }), {
+        status: 400, headers: { 'content-type': 'application/json' },
+      });
+    }
+    // We can't read the bcrypt hash from plpgsql, and we don't want the
+    // SPA to send a fresh sign-in (it would change auth.sessions and
+    // invalidate the current JWT mid-flight). Verify by signing in on a
+    // throwaway headless client and immediately signing out — GoTrue
+    // returns ok only when the password matches.
+    const { createClient: createHeadless } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const headless = createHeadless(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+    const { error: pwErr } = await headless.auth.signInWithPassword({
+      email: callerForPw.email,
+      password: body.current_password,
+    });
+    await headless.auth.signOut().catch(() => {});
+    if (pwErr) {
+      return new Response(JSON.stringify({ error: 'current password is incorrect' }), {
+        status: 401, headers: { 'content-type': 'application/json' },
+      });
+    }
+  }
 
   // Resolve the caller's role and the target public.users.id.
   const { data: caller, error: callerErr } = await admin

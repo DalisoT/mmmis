@@ -148,15 +148,22 @@ Each member signs in at `/login` with:
 ### 9. Members set their real email (later)
 
 Once a member has signed in and changed their password, they can post
-their real email to the `set-member-email` Edge Function:
+their real email to the `set-member-email` Edge Function. As of 0028 the
+function requires the caller to re-enter their current password to
+prevent stolen-JWT account takeover — supply `current_password` in the
+body when acting on your own account:
 
 ```bash
 curl -X POST \
   'https://<project-ref>.supabase.co/functions/v1/set-member-email' \
   -H "Authorization: Bearer <MEMBER_JWT>" \
   -H 'Content-Type: application/json' \
-  -d '{"email": "lt.kabonde@zm.mil"}'
+  -d '{"email": "lt.kabonde@zm.mil", "current_password": "<their-temp-pw>"}'
 ```
+
+Administrators performing recovery (target_user_id supplied, pointing at
+another user) do not need to send current_password — they're gated by the
+administrator role check inside the function.
 
 Deploy it with:
 

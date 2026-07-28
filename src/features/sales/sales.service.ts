@@ -612,19 +612,23 @@ export async function callChitAuthorizeEdgeFunction(
   if (!sess.session) {
     return { ok: false, error: 'Not signed in' };
   }
-  const token = sess.session.access_token;
+  let token = sess.session.access_token;
   const expiresAtMs = sess.session.expires_at ? sess.session.expires_at * 1000 : 0;
   if (expiresAtMs && expiresAtMs < Date.now()) {
     // Token is expired. Try one refresh before bailing — sometimes
     // getSession() returns a session whose access_token is stale even
-    // though the refresh token would still issue a new one.
+    // though the refresh token would still issue a new one. We compare
+    // the refreshed access_token against the original to detect the
+    // pathological case where GoTrue returned the same expired token
+    // (would otherwise have caused infinite recursion under the previous
+    // implementation).
     const { data: refreshed } = await supabase.auth.refreshSession();
-    if (refreshed.session?.access_token) {
-      // Recurse with the refreshed session by retrying the fetch once.
-      // (Avoids duplicating the fetch body below.)
-      return callChitAuthorizeEdgeFunction(requestId, password);
+    const next = refreshed.session?.access_token;
+    if (next && next !== token) {
+      token = next;
+    } else {
+      return { ok: false, error: 'Session expired — please sign in again' };
     }
-    return { ok: false, error: 'Session expired — please sign in again' };
   }
   try {
     const res = await fetch(`${url}/functions/v1/chit-authorize`, {
