@@ -15,12 +15,13 @@
 --    ambiguous [42702]"
 --
 -- The fix:
---   1. Qualify the RETURNING column reference explicitly with the table
---      alias so the OUT parameter is not a candidate.
---   2. Capture both RETURNING outputs into two local variables, then
---      RETURN QUERY the local variables (the output mapping by position
---      is unambiguous and the variable name `v_expires` no longer
---      clashes with the output column `expires_at`).
+--   1. PostgreSQL `INSERT` does not support a table alias in the form
+--      `insert into ... tbl_alias`. We instead qualify the RETURNING
+--      columns with the schema-qualified table name
+--      (`public.chit_authorization_requests.expires_at`) so the OUT
+--      parameter of the same name is no longer a candidate.
+--   2. Rename the local variable from `v_expires` to `v_expires_at` so
+--      it cannot shadow the OUT column name in any subsequent `select`.
 --
 -- Idempotent: re-running this migration just replaces the function body.
 -- =============================================================================
@@ -102,16 +103,19 @@ begin
       using errcode = '22000';
   end if;
 
-  -- Insert + capture the freshly-stamped expires_at. The variable name is
-  -- `v_expires_at` (different from the OUT column `expires_at`) so the
-  -- RETURNING expression does not get shadowed. We also fully-qualify
-  -- the RETURNING columns with the table alias to remove any remaining
-  -- ambiguity with the OUT parameter of the same name.
-  insert into public.chit_authorization_requests r
-    (r.member_id, r.created_by, r.cart, r.total_amount, r.expires_at)
+  -- Insert + capture the freshly-stamped expires_at.
+  -- The INSERT target has no alias — PostgreSQL does not allow
+  -- `insert into ... tbl_alias`. We instead fully qualify the
+  -- RETURNING columns with the schema-qualified table name so the
+  -- OUT parameter `expires_at` is no longer a candidate and the
+  -- SQL parser stops raising 42702.
+  insert into public.chit_authorization_requests
+    (member_id, created_by, cart, total_amount, expires_at)
   values
     (p_member_id, v_caller, p_cart, v_total, v_expires_at)
-  returning r.id, r.expires_at into v_id, v_expires_at;
+  returning public.chit_authorization_requests.id,
+            public.chit_authorization_requests.expires_at
+     into v_id, v_expires_at;
 
   return query select v_id, v_expires_at;
 end;
