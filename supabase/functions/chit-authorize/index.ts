@@ -26,14 +26,37 @@ interface RequestBody {
   password: string;
 }
 
+// CORS — the buyer's /portal/authorize page is served from the SPA origin
+// (mmmis.vercel.app) and POSTs to the Edge Function gateway. Without these
+// headers the browser's preflight OPTIONS gets a 405 with no
+// Access-Control-Allow-Origin and `fetch` rejects with "Failed to fetch".
+const corsHeaders: Record<string, string> = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'POST, OPTIONS',
+  'access-control-allow-headers': 'authorization, content-type, apikey, x-client-info',
+  'access-control-max-age': '86400',
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json', ...corsHeaders },
+  });
+}
+
 Deno.serve(async (req) => {
+  // CORS preflight — short-circuit before the POST handler.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+    return json({ error: 'Method not allowed' }, 405);
   }
 
   const auth = req.headers.get('authorization') ?? '';
   if (!auth) {
-    return new Response('Unauthorized', { status: 401 });
+    return json({ error: 'Unauthorized' }, 401);
   }
 
   // 1. Verify the buyer is signed in. We do NOT trust the email here —
@@ -46,26 +69,17 @@ Deno.serve(async (req) => {
 
   const { data: buyerData, error: buyerErr } = await userClient.auth.getUser();
   if (buyerErr || !buyerData.user) {
-    return new Response(
-      JSON.stringify({ error: 'Not signed in' }),
-      { status: 401, headers: { 'content-type': 'application/json' } }
-    );
+    return json({ error: 'Not signed in' }, 401);
   }
 
   let body: RequestBody;
   try {
     body = await req.json();
   } catch {
-    return new Response(
-      JSON.stringify({ error: 'Invalid JSON body' }),
-      { status: 400, headers: { 'content-type': 'application/json' } }
-    );
+    return json({ error: 'Invalid JSON body' }, 400);
   }
   if (!body?.request_id || typeof body.password !== 'string' || body.password.length === 0) {
-    return new Response(
-      JSON.stringify({ error: 'request_id and password are required' }),
-      { status: 400, headers: { 'content-type': 'application/json' } }
-    );
+    return json({ error: 'request_id and password are required' }, 400);
   }
 
   // 2. Load the request, confirm the buyer IS the member, and learn the
@@ -76,30 +90,18 @@ Deno.serve(async (req) => {
     .eq('id', body.request_id)
     .single();
   if (reqErr || !reqRow) {
-    return new Response(
-      JSON.stringify({ error: 'Authorization request not found' }),
-      { status: 404, headers: { 'content-type': 'application/json' } }
-    );
+    return json({ error: 'Authorization request not found' }, 404);
   }
   if (reqRow.status !== 'pending') {
-    return new Response(
-      JSON.stringify({ error: `Authorization already ${reqRow.status}` }),
-      { status: 409, headers: { 'content-type': 'application/json' } }
-    );
+    return json({ error: `Authorization already ${reqRow.status}` }, 409);
   }
   if (new Date(reqRow.expires_at).getTime() < Date.now()) {
-    return new Response(
-      JSON.stringify({ error: 'Authorization expired' }),
-      { status: 410, headers: { 'content-type': 'application/json' } }
-    );
+    return json({ error: 'Authorization expired' }, 410);
   }
 
   const memberEmail = (reqRow as any)?.member?.email;
   if (!memberEmail) {
-    return new Response(
-      JSON.stringify({ error: 'Member has no email on file' }),
-      { status: 400, headers: { 'content-type': 'application/json' } }
-    );
+    return json({ error: 'Member has no email on file' }, 400);
   }
 
   // 3. Verify password against Supabase Auth using a throwaway headless
@@ -115,10 +117,7 @@ Deno.serve(async (req) => {
   });
   await headless.auth.signOut();
   if (pwErr) {
-    return new Response(
-      JSON.stringify({ error: 'Password is incorrect' }),
-      { status: 401, headers: { 'content-type': 'application/json' } }
-    );
+    return json({ error: 'Password is incorrect' }, 401);
   }
 
   // 4. Password is correct — stamp the authorization request. Run as the
@@ -128,13 +127,8 @@ Deno.serve(async (req) => {
     p_request_id: body.request_id,
   });
   if (approveErr) {
-    return new Response(
-      JSON.stringify({ error: approveErr.message }),
-      { status: 400, headers: { 'content-type': 'application/json' } }
-    );
+    return json({ error: approveErr.message }, 400);
   }
 
-  return new Response(JSON.stringify({ ok: true }), {
-    headers: { 'content-type': 'application/json' },
-  });
+  return json({ ok: true });
 });
