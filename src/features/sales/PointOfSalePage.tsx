@@ -165,15 +165,13 @@ export function PointOfSalePage() {
     }
   };
 
-  /** Barman override path — stamp override then finalize in one go. */
+  /** Barman override path — stamp override then finalize in one go.
+   *  Throws on failure so the caller (onManualOverride) can report the
+   *  error to the dialog instead of closing it on a false success. */
   const applyManualOverride = async (requestId: string) => {
-    try {
-      await manualOverride.mutateAsync(requestId);
-      const result = await finalizeAuth.mutateAsync(requestId);
-      await applyFinalizedSale(result.saleId, Number(result.total_amount ?? 0));
-    } catch (e: any) {
-      toast.error(`Override failed: ${e.message ?? String(e)}`);
-    }
+    await manualOverride.mutateAsync(requestId);
+    const result = await finalizeAuth.mutateAsync(requestId);
+    await applyFinalizedSale(result.saleId, Number(result.total_amount ?? 0));
   };
 
   /** Barman changes mind — mark the request cancelled. */
@@ -364,10 +362,16 @@ export function PointOfSalePage() {
             member={selectedMember}
             total={total}
             items={cart}
-            onManualOverride={(pw) => verifyMemberPassword(selectedMember.service_number, pw)
-              .then((r) => r.ok
-                ? (applyManualOverride(authRequest.id), { ok: true as const })
-                : { ok: false as const, error: r.error })}
+            onManualOverride={async (pw) => {
+              const r = await verifyMemberPassword(selectedMember.service_number, pw);
+              if (!r.ok) return { ok: false as const, error: r.error };
+              try {
+                await applyManualOverride(authRequest.id);
+                return { ok: true as const };
+              } catch (e: any) {
+                return { ok: false as const, error: e?.message ?? String(e) };
+              }
+            }}
             onCancel={() => void cancelAuthRequest(authRequest.id)}
             onApproved={() => void finalizeChitSale(authRequest.id)}
           />

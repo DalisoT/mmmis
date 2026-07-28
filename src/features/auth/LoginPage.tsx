@@ -31,7 +31,9 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
 
-  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/';
+  const stateFrom = (location.state as { from?: { pathname?: string; search?: string; hash?: string } } | null)?.from;
+  const next = new URLSearchParams(location.search).get('next');
+  const from = next || (stateFrom ? `${stateFrom.pathname ?? '/'}${stateFrom.search ?? ''}${stateFrom.hash ?? ''}` : '/');
 
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null);
