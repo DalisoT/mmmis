@@ -56,7 +56,20 @@ Deno.serve(async (req) => {
 
   const auth = req.headers.get('authorization') ?? '';
   if (!auth) {
-    return json({ error: 'Unauthorized' }, 401);
+    return json({ error: 'Missing Authorization header' }, 401);
+  }
+
+  // Extract the bearer token. We do NOT rely on the userClient's session
+  // cache here — passing it explicitly to getUser() bypasses the JS
+  // client's in-memory session state, which is empty in an Edge Function
+  // (we never signed in from this runtime) and previously caused
+  // "Auth session is missing!" even though the JWT was structurally
+  // valid and accepted by the PostgREST layer.
+  const token = auth.toLowerCase().startsWith('bearer ')
+    ? auth.slice(7).trim()
+    : auth.trim();
+  if (!token) {
+    return json({ error: 'Missing Authorization header' }, 401);
   }
 
   // 1. Verify the buyer is signed in. We do NOT trust the email here —
@@ -64,20 +77,15 @@ Deno.serve(async (req) => {
   const userClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: auth } } }
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
   );
 
-  const { data: buyerData, error: buyerErr } = await userClient.auth.getUser();
+  const { data: buyerData, error: buyerErr } = await userClient.auth.getUser(token);
   if (buyerErr || !buyerData.user) {
-    // Distinguish "no Authorization header" from "header present but
-    // token rejected" so the SPA can give the buyer a precise message
-    // (re-authenticate vs. try again).
-    const reason = !auth
-      ? 'Missing Authorization header'
-      : buyerErr?.message
-        ? `Invalid session: ${buyerErr.message}`
-        : 'Not signed in';
-    return json({ error: reason }, 401);
+    return json(
+      { error: buyerErr?.message ? `Invalid session: ${buyerErr.message}` : 'Not signed in' },
+      401,
+    );
   }
 
   let body: RequestBody;
