@@ -389,7 +389,16 @@ export function useCreateChitAuthorization() {
         })),
         p_total_amount: total_amount ?? null,
       });
-      if (error) throw error;
+      if (error) {
+        // PostgREST surfaces the Postgres exception text in error.message.
+        // Include the status + code so the barman sees the actual reason
+        // (e.g. "Forbidden: only staff can begin a CHIT sale") rather
+        // than a generic toast.
+        const detail = (error as { message?: string; code?: string; details?: string }).message
+          ?? 'create_chit_authorization failed';
+        const code = (error as { code?: string }).code;
+        throw new Error(code ? `${detail} [${code}]` : detail);
+      }
       const row = Array.isArray(data) ? data[0] : data;
       const request_id = (row as { request_id: string } | null)?.request_id;
       const expires_at = (row as { expires_at: string } | null)?.expires_at;
