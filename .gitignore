@@ -8,6 +8,7 @@ dist-ssr
 
 # Bulk-member seed artifacts (plaintext temp passwords — never commit).
 bulk_member_passwords.md
+__seed_realrun.json
 __seed_admin.tmp
 
 
