@@ -594,6 +594,13 @@ export function useRejectChitAuthorization() {
  *   - 'Session expired'     — session exists but the access token is past
  *                             expires_at (auto-refresh failed; ask buyer
  *                             to sign in again)
+ *   - 'Session no longer valid — please sign in again'
+ *                           — GoTrue rejected the JWT with
+ *                             session_not_found, meaning the auth.sessions
+ *                             row that issued this JWT has been deleted
+ *                             server-side (revoked, GC'd, or signed out
+ *                             from another tab). The SPA clears the local
+ *                             session and forces re-auth.
  *   - '<server message>'    — Edge Function rejected the request
  */
 export async function callChitAuthorizeEdgeFunction(
@@ -630,7 +637,21 @@ export async function callChitAuthorizeEdgeFunction(
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { ok: false, error: body?.error ?? `HTTP ${res.status}` };
+      const msg: string = body?.error ?? `HTTP ${res.status}`;
+      // GoTrue 403 with bad_jwt + session_not_found means the JWT is
+      // signed but the auth.sessions row that issued it is gone. The
+      // token will *never* be accepted again — drop it locally so the
+      // buyer is forced to re-authenticate instead of retrying with the
+      // same dead JWT.
+      if (
+        typeof msg === 'string' &&
+        (msg.includes('session_not_found') ||
+         msg.includes('Session from session_id claim'))
+      ) {
+        await supabase.auth.signOut().catch(() => {});
+        return { ok: false, error: 'Session no longer valid — please sign in again' };
+      }
+      return { ok: false, error: msg };
     }
     return { ok: true };
   } catch (e) {
