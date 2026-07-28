@@ -175,12 +175,16 @@ Deno.serve(async (req) => {
   if (!auth.toLowerCase().startsWith('bearer ')) {
     return new Response('Unauthorized', { status: 401 });
   }
+  const token = auth.slice(7).trim();
+  if (!token) return new Response('Unauthorized', { status: 401 });
   const userClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: auth } } }
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
   );
-  const { data: userData, error: userErr } = await userClient.auth.getUser();
+  // Pass the token explicitly to bypass the userClient's empty in-memory
+  // session cache — see chit-authorize for the same fix and rationale.
+  const { data: userData, error: userErr } = await userClient.auth.getUser(token);
   if (userErr || !userData.user) return new Response('Unauthorized', { status: 401 });
   const { data: caller } = await userClient
     .from('users')
