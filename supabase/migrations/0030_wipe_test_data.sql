@@ -34,6 +34,13 @@
 begin;
 
 -- 1. Operations history — leaf tables that reference products/users/members.
+--    chit_authorization_requests.consumed_sale_id is a back-pointer FK to
+--    sales(id) with no ON DELETE clause. To wipe sales we either (a) delete
+--    chit_authorization_requests first, OR (b) null the back-pointer first.
+--    We do (b) so the FK constraint can't fire regardless of trigger or RLS
+--    surprises; the rows are about to be deleted anyway.
+update public.chit_authorization_requests set consumed_sale_id = null;
+
 delete from public.sale_items;
 delete from public.sales;
 delete from public.chit_authorization_requests;
