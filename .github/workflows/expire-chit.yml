@@ -1,0 +1,52 @@
+# MMMIS — expire pending CHIT authorizations every minute.
+#
+# Substitute for pg_cron on Supabase plans where the extension is not
+# installed. Calls the `expire-chit-authorizations` Edge Function, which
+# invokes public.expire_chit_authorizations() (the same RPC 0028 would
+# have scheduled via pg_cron). Idempotent: rows already 'expired' are
+# ignored.
+#
+# Required GitHub repo secret: CRON_SECRET — the same value you set via
+# `supabase secrets set CRON_SECRET=<value>`. The function compares the
+# X-Cron-Secret header against this and 401s on mismatch.
+#
+# Cost: GitHub Actions gives free public repos unlimited minutes; private
+# repos get 2,000 minutes/month free. Each run is well under 5s.
+
+name: Expire pending CHIT authorizations
+
+on:
+  schedule:
+    # every minute
+    - cron: '* * * * *'
+  workflow_dispatch: # allow manual runs from the Actions tab for testing
+
+jobs:
+  expire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    concurrency:
+      # Prevent overlapping runs if a previous minute's job is slow.
+      group: mmmis-expire-chit
+      cancel-in-progress: false
+    steps:
+      - name: Trigger expire-chit-authorizations Edge Function
+        env:
+          SUPABASE_URL:    ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET:     ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          STATUS=$(curl -sS -o /tmp/expire_body.json -w '%{http_code}' \
+            -X POST "${SUPABASE_URL}/functions/v1/expire-chit-authorizations" \
+            -H "X-Cron-Secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -w '\nHTTP %{http_code}\n')
+          echo "$STATUS"
+          cat /tmp/expire_body.json
+          echo
+
+          # Echo a one-line summary to the GH Actions log so it's easy
+          # to scan the history.
+          if command -v jq >/dev/null 2>&1; then
+            jq -r '"expired_count=\(.expired_count // 0) ok=\(.ok // false) at=\(.captured_at // "unknown")"' /tmp/expire_body.json || true
+          fi

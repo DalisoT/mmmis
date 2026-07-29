@@ -14,6 +14,48 @@ This directory contains the deployed Edge Functions for MMMIS. The SPA
 | `admin-reset-password` | Admin-driven password reset. Generates 16-char temp, calls `updateUserById`, flips `must_reset_pw`, optionally emails via Mailgun. | off |
 | `bulk-seed-members` | Bulk insert of member rows from an admin CSV upload. | — |
 | `set-member-email` | Set a member's email on their auth.user (service-only). | — |
+| `expire-chit-authorizations` | Cron-triggered wrapper around `public.expire_chit_authorizations()`. Substitute for pg_cron on plans where it's missing. See "External cron fallback" below. | off |
+
+## External cron fallback (when pg_cron is unavailable)
+
+On Supabase plans without the `pg_cron` extension, migration `0028`
+installs cleanly but does not schedule `expire_chit_authorizations()`.
+Stale `pending` rows then accumulate forever.
+
+The fallback is:
+
+1. **Deploy** this function:
+   ```bash
+   supabase functions deploy expire-chit-authorizations --no-verify-jwt
+   ```
+2. **Set the shared secret** in Supabase:
+   ```bash
+   supabase secrets set CRON_SECRET="$(openssl rand -hex 32)"
+   ```
+   Capture the value returned (you'll need it on the GitHub side).
+3. **Mirror the same value** as a GitHub Actions repo secret named
+   `CRON_SECRET` (Settings → Secrets → Actions). Also add a repo
+   secret `SUPABASE_URL` with your project URL.
+4. The workflow at `.github/workflows/expire-chit.yml` posts to the
+   function every minute. Cost: well under 5s/run, so 2,000
+   free-tier minutes/month covers ~24,000 invocations.
+
+**When the Supabase plan is upgraded** to one with pg_cron:
+```bash
+psql ... -f supabase/migrations/0028_chit_expiry_cron.sql  # re-run
+```
+That schedules pg_cron natively. **Disable the GitHub Actions workflow
+at the same time** (Actions → workflow → "Disable workflow") so you
+don't double-fire. Or delete `.github/workflows/expire-chit.yml`.
+
+**Test the function locally before relying on the schedule:**
+```bash
+SUPABASE_URL=https://<ref>.supabase.co \
+CRON_SECRET=<the value> \
+curl -X POST "$SUPABASE_URL/functions/v1/expire-chit-authorizations" \
+  -H "X-Cron-Secret: $CRON_SECRET"
+# Expect: {"ok":true,"expired_count":N,"captured_at":"..."}
+```
 
 > **Note:** the standalone `invite-email` function that previously shipped
 > here has been retired. New-user creation now flows exclusively through
