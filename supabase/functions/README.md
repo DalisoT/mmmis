@@ -15,6 +15,8 @@ This directory contains the deployed Edge Functions for MMMIS. The SPA
 | `bulk-seed-members` | Bulk insert of member rows from an admin CSV upload. | — |
 | `set-member-email` | Set a member's email on their auth.user (service-only). | — |
 | `expire-chit-authorizations` | Cron-triggered wrapper around `public.expire_chit_authorizations()`. Substitute for pg_cron on plans where it's missing. See "External cron fallback" below. | off |
+| `admin-wipe-auth-users` | One-shot scrub of orphan `auth.users` rows (paired with `0030` wipe). Hard-gated by `WIPE_AUTH_SECRET` env var. | off |
+| `bootstrap-admin` | One-shot promotion of an existing user to `administrator` role. Used to seed the first admin after a clean-slate wipe. Hard-gated by `BOOTSTRAP_SECRET` env var and refuses to run if any admin already exists. | off |
 
 ## External cron fallback (when pg_cron is unavailable)
 
@@ -77,6 +79,8 @@ supabase functions deploy create-user        --no-verify-jwt
 supabase functions deploy admin-reset-password --no-verify-jwt
 supabase functions deploy bulk-seed-members
 supabase functions deploy set-member-email
+supabase functions deploy admin-wipe-auth-users --no-verify-jwt
+supabase functions deploy bootstrap-admin    --no-verify-jwt
 
 # Secrets (Mailgun, used by create-user / admin-reset-password).
 # Without these the functions still deploy and respond, but the email

@@ -1,9 +1,11 @@
 # CONTINUE_HERE.md
 
 > Pick-up notes for resuming work on the MMMIS project after a break.
-> Last updated: end of the current session (HEAD = `5bdc7bc` on `main`,
-> with the local destructive-ops worktree NOT YET committed — see
-> "Pending destructive ops" section).
+> Last updated: end of the current session (HEAD = `f118175` on `main`,
+> destructive ops 0030 + 0031 + admin-wipe-auth-users ALREADY APPLIED to
+> the live DB; see "Pending destructive ops" for what was done, and
+> "First administrator after the wipe" for the bootstrap-admin step
+> that comes next).
 
 ---
 
@@ -304,11 +306,12 @@ Expected response:
 `tests/sql/diagnostic_one_row.sql` should now report `active_members = 0`,
 `active_barmen = 0`, `active_products = 0`.
 
-### Files touched in this branch (not yet committed)
+### Files touched in this branch (now committed in `d12db89` + `f118175`)
 
-- `supabase/migrations/0030_wipe_test_data.sql` (new)
-- `supabase/migrations/0031_drop_must_reset_pw.sql` (new)
-- `supabase/functions/admin-wipe-auth-users/index.ts` (new)
+- `supabase/migrations/0030_wipe_test_data.sql` (new — applied to live DB)
+- `supabase/migrations/0031_drop_must_reset_pw.sql` (new — applied to live DB)
+- `supabase/functions/admin-wipe-auth-users/index.ts` (new — deployed + run;
+  wiped 46 orphan auth.users rows)
 - `supabase/migrations/0015_phase15_member_self_signup.sql` — removed
   `must_reset_pw` from the trigger INSERT
 - `supabase/migrations/0023_bulk_member_seed.sql` — same
@@ -333,6 +336,73 @@ Expected response:
   own auth.users row + public.users row + public.members row is **not
   built yet**. The branch only stages the wipe and the machinery
   removal. Building `/register` is the next step after this lands.
+
+---
+
+## First administrator after the wipe
+
+After the destructive ops above, the deployment has zero administrators
+and zero members — no one can sign in. The seeded `bootstrap-admin`
+Edge Function promotes an existing user (one who has just registered
+via `/register`) to the administrator role.
+
+### Deploy + secret
+
+```bash
+supabase functions deploy bootstrap-admin --no-verify-jwt
+supabase secrets set BOOTSTRAP_SECRET="$(openssl rand -hex 32)"
+```
+
+Capture the secret value — you only get one shot to use it.
+
+### Run
+
+1. The future admin opens `/register` on the SPA, fills in their
+   service number, full name, email, and password, and submits.
+   That creates an `auth.users` row plus a `public.users` row with
+   role `member` (via `fn_handle_new_auth_user()` trigger from 0015).
+2. From a shell, with the captured secret:
+
+   ```powershell
+   $secret = "<BOOTSTRAP_SECRET value>"
+   $email  = "the.new.admin@example.com"
+   $body   = @{ email = $email } | ConvertTo-Json
+   Invoke-RestMethod -Method Post `
+     -Uri "$env:SUPABASE_URL/functions/v1/bootstrap-admin" `
+     -Headers @{ "X-Bootstrap-Secret" = $secret } `
+     -ContentType "application/json" -Body $body
+   ```
+
+   Expected response:
+
+   ```json
+   {
+     "ok": true,
+     "promoted_user_id": "<uuid>",
+     "promoted_email": "the.new.admin@example.com",
+     "role_code": "administrator",
+     "promoted_at": "<ISO timestamp>"
+   }
+   ```
+
+### Safety rails
+
+- The function refuses (503) if `BOOTSTRAP_SECRET` is unset.
+- The function refuses (401) if the `X-Bootstrap-Secret` header doesn't match.
+- The function refuses (409) if any active administrator already exists
+  in `public.users`. Once an admin exists, normal admin tooling (Users
+  page, etc.) should be used to change roles.
+- The function only promotes; never demotes or deletes.
+- Every promotion is audited via `log_audit_event('bootstrap.admin_promote', …)`.
+
+### After the first admin exists
+
+```bash
+supabase secrets unset BOOTSTRAP_SECRET
+```
+
+The function will then 503 forever. It is a one-shot hand-grenade by
+design.
 
 ---
 
