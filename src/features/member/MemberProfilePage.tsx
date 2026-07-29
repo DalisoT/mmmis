@@ -64,6 +64,7 @@ export function MemberProfilePage() {
 
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     if (!allChecksPass) {
       toast.error('Password must be at least 8 characters with upper, lower, and a digit.');
       return;
@@ -75,12 +76,35 @@ export function MemberProfilePage() {
     setChanging(true);
     try {
       const { error: reauth } = await supabase.auth.signInWithPassword({
-        email: user?.email ?? '',
+        email: user.email ?? '',
         password: currentPw,
       });
       if (reauth) throw new Error('Current password is incorrect');
       const { error } = await supabase.auth.updateUser({ password: newPw });
       if (error) throw error;
+
+      // Best-effort: clear the must_reset_pw flag if it was set. The
+      // RLS policy `users_self_update` (see 0005_phase3_policies.sql)
+      // allows members to UPDATE their own row by auth_id. We use
+      // public.users.id here for consistency with the phone-save
+      // handler above. If RLS denies the write we silently continue;
+      // the password has been changed, which is what matters most —
+      // an admin can flip the flag manually if it sticks at true.
+      try {
+        const { error: clearErr } = await supabase
+          .from('users')
+          .update({ must_reset_pw: false })
+          .eq('id', user.id);
+        if (clearErr) {
+          // eslint-disable-next-line no-console
+          console.warn('Could not clear must_reset_pw:', clearErr.message);
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('Clear must_reset_pw threw:', e);
+      }
+      await refreshUser();
+
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
       toast.success('Password updated');
     } catch (err) {
