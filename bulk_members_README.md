@@ -142,8 +142,7 @@ Each member signs in at `/login` with:
   email, that placeholder is what `auth.signInWithPassword` actually uses;
   the member never has to know the placeholder.
 - **Temp password** — from the slip.
-- They are forced to set a new password on first sign-in
-  (`must_reset_pw=true`).
+- They sign in and can change their password from `/portal/profile`.
 
 ### 9. Members set their real email (later)
 

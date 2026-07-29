@@ -3,7 +3,6 @@ import { AuthProvider } from '@/features/auth/AuthContext';
 import { ProtectedRoute } from '@/features/auth/guards';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
-import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
 import { ForbiddenPage } from '@/features/auth/ForbiddenPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
@@ -50,10 +49,6 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route
-          path="/reset-password"
-          element={<ResetPasswordPage />}
-        />
         <Route path="/forbidden" element={<ForbiddenPage />} />
         <Route path="/portal/authorize/:requestId" element={<AuthorizeChitPage />} />
 

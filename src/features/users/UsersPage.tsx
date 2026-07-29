@@ -396,7 +396,7 @@ function CreateUserDialog({ roles: _roles, onSubmit, submitting, error }: Create
   } = useForm<CreateValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
-      role_code: 'member', is_active: true, must_reset_pw: true, password: '',
+      role_code: 'member', is_active: true, password: '',
     },
   });
   const role = watch('role_code');
@@ -511,7 +511,6 @@ function EditUserDialog({ user, onSubmit, submitting, onResetPassword, resetting
       unit: user.unit ?? '',
       role_code: user.role_code,
       is_active: user.is_active,
-      must_reset_pw: user.must_reset_pw,
     },
   });
   const role = watch('role_code');

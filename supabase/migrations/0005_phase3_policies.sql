@@ -2,7 +2,7 @@
 -- Phase 3 — Sales & CHIT policies.
 --
 -- Adds policies the barman workflow needs:
---   1. Members can self-update their own password field (must_reset_pw).
+--   1. Members can self-update their own profile fields.
 --   2. Members can read their own ledger entries (already covered by ledger_self_read).
 --   3. Authenticated users can read products (already covered by products_read).
 --   4. Authenticated users can write to ledger ONLY via the SECURITY DEFINER

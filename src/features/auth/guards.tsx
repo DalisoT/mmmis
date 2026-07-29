@@ -10,13 +10,8 @@ interface ProtectedRouteProps {
 }
 
 /**
- * Route guard.
- *  - Unauthenticated users → /login.
- *  - Authenticated users whose `must_reset_pw` flag is set → /reset-password
- *    (the only place that lets them set a password without typing the
- *    current one, which they may have just received as a temp from an
- *    admin or a recovery email).
- *  - Authenticated but unauthorized role → /forbidden.
+ * Route guard. Unauthenticated users are redirected to /login.
+ * Authenticated-but-unauthorized users are redirected to /forbidden.
  */
 export function ProtectedRoute({ children, allow }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
@@ -32,13 +27,6 @@ export function ProtectedRoute({ children, allow }: ProtectedRouteProps) {
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
-  }
-
-  // Force a password change before granting access to anything else.
-  // The /reset-password route itself sits OUTSIDE this ProtectedRoute,
-  // so the user can land there and submit a new password.
-  if (user.must_reset_pw) {
-    return <Navigate to="/reset-password" replace />;
   }
 
   if (allow && !allow.includes(user.role_code)) {

@@ -27,7 +27,6 @@ export interface AppUserProfile {
   rank: string | null;
   unit: string | null;
   is_active: boolean;
-  must_reset_pw: boolean;
   last_login_at: string | null;
   created_at: string;
   updated_at: string;

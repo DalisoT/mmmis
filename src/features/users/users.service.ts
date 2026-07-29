@@ -22,7 +22,6 @@ export const userFormSchema = z.object({
     .min(8, 'Min 8 characters, or leave blank to auto-generate')
     .optional()
     .or(z.literal('')),
-  must_reset_pw: z.boolean().default(true),
   is_active: z.boolean().default(true),
 });
 export type UserFormValues = z.infer<typeof userFormSchema>;
@@ -35,7 +34,6 @@ export const userUpdateSchema = z.object({
   unit: z.string().optional(),
   role_code: z.enum(['administrator', 'treasurer', 'barman', 'member']).optional(),
   is_active: z.boolean().optional(),
-  must_reset_pw: z.boolean().optional(),
 });
 export type UserUpdateValues = z.infer<typeof userUpdateSchema>;
 
@@ -72,7 +70,7 @@ export function useUsers() {
         .from('users')
         .select(`
           id, auth_id, service_number, full_name, email, phone, role_id,
-          rank, unit, is_active, must_reset_pw, last_login_at,
+          rank, unit, is_active, last_login_at,
           created_at, updated_at,
           role:roles ( id, code, name )
         `)
@@ -96,7 +94,6 @@ export function useUsers() {
           rank: row.rank,
           unit: row.unit,
           is_active: row.is_active,
-          must_reset_pw: row.must_reset_pw,
           last_login_at: row.last_login_at,
           created_at: row.created_at,
           updated_at: row.updated_at,
@@ -144,7 +141,6 @@ export function useCreateUser() {
             unit: values.unit ?? null,
             role_code: values.role_code,
             password: values.password && values.password.length >= 8 ? values.password : undefined,
-            must_reset_pw: values.must_reset_pw,
             is_active: values.is_active,
           },
         }
@@ -168,7 +164,6 @@ export function useUpdateUser() {
       if (values.rank !== undefined) patch.rank = values.rank;
       if (values.unit !== undefined) patch.unit = values.unit;
       if (values.is_active !== undefined) patch.is_active = values.is_active;
-      if (values.must_reset_pw !== undefined) patch.must_reset_pw = values.must_reset_pw;
 
       if (values.role_code !== undefined) {
         const { data: role, error: roleErr } = await supabase

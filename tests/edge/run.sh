@@ -249,7 +249,7 @@ echo ""
 SVC="TEST$(date +%s)${RANDOM}"
 TEST_EMAIL="test-${SVC}@example.com"
 call_edge create-user POST "-H \"Authorization: Bearer ${ADMIN_JWT}\"" \
-  "$(printf '{"service_number":"%s","email":"%s","full_name":"Test User","role_code":"member","is_active":true,"must_reset_pw":true}' "$SVC" "$TEST_EMAIL")"
+  "$(printf '{"service_number":"%s","email":"%s","full_name":"Test User","role_code":"member","is_active":true}' "$SVC" "$TEST_EMAIL")"
 assert_status 200 "$STATUS" "create-user: happy path"
 if [[ "$STATUS" == "200" ]]; then
   for key in user_id auth_id temp_password; do

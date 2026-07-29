@@ -28,7 +28,6 @@ interface CreateRequest {
   role_code: 'administrator' | 'treasurer' | 'barman' | 'member';
   /** Optional override; if omitted the function generates a strong random one. */
   password?: string;
-  must_reset_pw?: boolean;
   is_active?: boolean;
 }
 
@@ -223,7 +222,6 @@ Deno.serve(async (req) => {
       rank: body.rank ?? null,
       unit: body.unit ?? null,
       is_active: body.is_active ?? true,
-      must_reset_pw: body.must_reset_pw ?? true,
     })
     .select('id')
     .single();

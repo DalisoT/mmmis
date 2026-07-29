@@ -11,7 +11,7 @@ This directory contains the deployed Edge Functions for MMMIS. The SPA
 | `chit-authorize` | Buyer's phone authorizes a CHIT purchase (verifies the buyer's password, then calls `approve_chit_authorization()`). | off |
 | `password-reset` | Generates a `recovery` link by service_number. Anonymous by design; always returns 200. Audits via service-role. | off |
 | `create-user` | Admin-driven create-user. Resolves role, calls `auth.admin.createUser(email_confirm:true)`, inserts the `public.users` row, emails credentials via Mailgun, audits. | off |
-| `admin-reset-password` | Admin-driven password reset. Generates 16-char temp, calls `updateUserById`, flips `must_reset_pw`, optionally emails via Mailgun. | off |
+| `admin-reset-password` | Admin-driven password reset. Generates 16-char temp, calls `updateUserById`, optionally emails via Mailgun. | off |
 | `bulk-seed-members` | Bulk insert of member rows from an admin CSV upload. | — |
 | `set-member-email` | Set a member's email on their auth.user (service-only). | — |
 | `expire-chit-authorizations` | Cron-triggered wrapper around `public.expire_chit_authorizations()`. Substitute for pg_cron on plans where it's missing. See "External cron fallback" below. | off |

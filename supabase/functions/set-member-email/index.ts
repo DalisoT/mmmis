@@ -20,7 +20,6 @@
 //        auth.users.email          = new email
 //        auth.users.email_confirmed_at = now()
 //        public.users.email        = new email
-//      and clear must_reset_pw if it was the first thing the member did.
 //   5. Audit row written.
 //
 // Permission model:
@@ -155,7 +154,7 @@ Deno.serve(async (req) => {
 
   const { data: target, error: targetErr } = await admin
     .from('users')
-    .select('id, auth_id, email, must_reset_pw')
+    .select('id, auth_id, email')
     .eq('id', targetPublicId)
     .single();
   if (targetErr || !target) {
@@ -192,7 +191,7 @@ Deno.serve(async (req) => {
   // Update public.users.
   const { error: publicUpdErr } = await admin
     .from('users')
-    .update({ email: newEmail, must_reset_pw: false })
+    .update({ email: newEmail })
     .eq('id', target.id);
   if (publicUpdErr) {
     // Best-effort rollback of the auth row would risk clobbering data; just

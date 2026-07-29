@@ -149,9 +149,6 @@ Deno.serve(async (req) => {
     return json({ error: updErr.message }, 400);
   }
 
-  // Flip must_reset_pw so the next login forces a change.
-  await admin.from('users').update({ must_reset_pw: true }).eq('id', target.id);
-
   let mailed = false;
   if (body.send_email !== false && target.email) {
     mailed = await sendEmail(target.email, target.full_name, temp);

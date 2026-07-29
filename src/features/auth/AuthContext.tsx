@@ -8,16 +8,6 @@ interface AuthContextValue {
   user: AppUserProfile | null;
   role: AppRoleCode | null;
   loading: boolean;
-  /**
-   * Set to true when Supabase fires the `PASSWORD_RECOVERY` event — i.e.
-   * the user has just clicked the link in the recovery email and now has
-   * a one-shot session to set a new password. The /reset-password page
-   * reads this and shows the form even if `must_reset_pw` is false in
-   * the public.users row.
-   */
-  recoveryEventPending: boolean;
-  /** Acknowledged by the reset-password page once it has rendered the form. */
-  clearRecoveryEventPending: () => void;
   signIn: (serviceNumber: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -30,7 +20,7 @@ async function fetchProfile(authId: string): Promise<AppUserProfile | null> {
     .from('users')
     .select(`
       id, auth_id, service_number, full_name, email, phone, role_id,
-      rank, unit, is_active, must_reset_pw, last_login_at,
+      rank, unit, is_active, last_login_at,
       created_at, updated_at,
       role:roles ( code, name )
     `)
@@ -57,7 +47,6 @@ async function fetchProfile(authId: string): Promise<AppUserProfile | null> {
     rank: data.rank,
     unit: data.unit,
     is_active: data.is_active,
-    must_reset_pw: data.must_reset_pw,
     last_login_at: data.last_login_at,
     created_at: data.created_at,
     updated_at: data.updated_at,
@@ -68,7 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<AppUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [recoveryEventPending, setRecoveryEventPending] = useState(false);
 
   const refreshUser = useCallback(async () => {
     if (!session?.user.id) {
@@ -78,10 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const profile = await fetchProfile(session.user.id);
     setUser(profile);
   }, [session?.user.id]);
-
-  const clearRecoveryEventPending = useCallback(() => {
-    setRecoveryEventPending(false);
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -96,19 +80,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mounted) setLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       if (newSession?.user.id) {
         void fetchProfile(newSession.user.id).then(setUser);
       } else {
         setUser(null);
-      }
-      // PASSWORD_RECOVERY fires when the user clicks the link in the
-      // reset email and lands back at our SPA. The session is valid but
-      // must only be used to set a new password. /reset-password watches
-      // this flag.
-      if (event === 'PASSWORD_RECOVERY') {
-        setRecoveryEventPending(true);
       }
     });
 
@@ -198,8 +175,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     role: user?.role_code ?? null,
     loading,
-    recoveryEventPending,
-    clearRecoveryEventPending,
     signIn,
     signOut,
     refreshUser,

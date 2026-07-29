@@ -61,10 +61,10 @@ begin
 
   insert into public.users (
     auth_id, service_number, full_name, email, role_id,
-    is_active, must_reset_pw
+    is_active
   ) values (
     new.id, v_svc, v_name, new.email, v_role_id,
-    true, true
+    true
   )
   returning id into v_user_id;
 
@@ -85,7 +85,7 @@ create trigger trg_on_auth_user_created
   for each row execute function public.fn_handle_new_auth_user();
 
 -- RLS: a freshly-registered member must be able to read their own row
--- and update must_reset_pw / phone on next login. This already exists
+-- and update phone on next login. This already exists
 -- via the policies in 0001, but we make sure phone is writable for the
 -- new self-registered account too.
 

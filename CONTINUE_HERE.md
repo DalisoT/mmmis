@@ -1,7 +1,9 @@
 # CONTINUE_HERE.md
 
 > Pick-up notes for resuming work on the MMMIS project after a break.
-> Last updated: end of the current session (HEAD = `4084800` on `main`).
+> Last updated: end of the current session (HEAD = `5bdc7bc` on `main`,
+> with the local destructive-ops worktree NOT YET committed — see
+> "Pending destructive ops" section).
 
 ---
 
@@ -240,6 +242,97 @@ In rough priority order, based on what's left on the hardening backlog:
    - Rate limiting on `chit-authorize` (needs Supabase Pro or external).
    - Move `verifyMemberPassword` (SPA `sales.service.ts:118`) to a
      server-side RPC so the password doesn't transit the SPA.
+
+---
+
+## Pending destructive ops — clean-slate self-register rollout
+
+Decision (recorded for posterity): members will self-register at `/register`
+with their own email + password. Recovery becomes the stock Supabase flow.
+All current test data is being wiped.
+
+This work is **staged locally but not yet committed or applied**. The
+intended run sequence is:
+
+### 1. SQL migrations (Supabase SQL Editor)
+
+Run these in order. Each is wrapped in a transaction so a failure
+aborts cleanly:
+
+```
+-- 0030 — destructive: deletes every public row in FK-safe order.
+--        Keeps public.roles (4 system roles).
+--        Schema, triggers, and RLS policies survive.
+\i supabase/migrations/0030_wipe_test_data.sql
+
+-- 0031 — schema: drop public.users.must_reset_pw
+\i supabase/migrations/0031_drop_must_reset_pw.sql
+```
+
+### 2. Edge Function deploy + secret
+
+```
+supabase functions deploy admin-wipe-auth-users --no-verify-jwt
+supabase secrets set WIPE_AUTH_SECRET="$(openssl rand -hex 32)"
+```
+
+The function fails closed (503) if `WIPE_AUTH_SECRET` is unset. It only
+deletes `auth.users` rows whose id is NOT in `public.users.auth_id` — so
+after 0030 has run it scrubs exactly the orphan auth rows.
+
+### 3. Run the wipe
+
+```
+curl -X POST "$SUPABASE_URL/functions/v1/admin-wipe-auth-users" \
+  -H "X-Admin-Secret: $WIPE_AUTH_SECRET" \
+  -H "Content-Type: application/json"
+```
+
+Expected response:
+
+```json
+{
+  "ok": true,
+  "wiped_count": <number of deleted auth.users rows>,
+  "kept_count":  <number of preserved public.users.auth_id values>,
+  "captured_at": "<ISO timestamp>"
+}
+```
+
+### 4. Smoke check
+
+`tests/sql/diagnostic_one_row.sql` should now report `active_members = 0`,
+`active_barmen = 0`, `active_products = 0`.
+
+### Files touched in this branch (not yet committed)
+
+- `supabase/migrations/0030_wipe_test_data.sql` (new)
+- `supabase/migrations/0031_drop_must_reset_pw.sql` (new)
+- `supabase/functions/admin-wipe-auth-users/index.ts` (new)
+- `supabase/migrations/0015_phase15_member_self_signup.sql` — removed
+  `must_reset_pw` from the trigger INSERT
+- `supabase/migrations/0023_bulk_member_seed.sql` — same
+- `supabase/functions/create-user/index.ts` — removed `must_reset_pw`
+  field from the request body
+- `supabase/functions/admin-reset-password/index.ts` — removed
+  `must_reset_pw` flip on reset
+- `supabase/functions/set-member-email/index.ts` — removed `must_reset_pw`
+  select/clear
+- `supabase/migrations/0005_phase3_policies.sql` — comment cleanup
+- `bulk_members_README.md`, `supabase/functions/README.md` — doc cleanup
+- `tests/edge/run.sh` — removed `must_reset_pw` from create-user test
+- `supabase/seed_45_members.sql` — same
+
+### Files NOT touched (would need to be done in a future pass)
+
+- `src/features/users/UsersPage.tsx` still has a `CreateUserDialog`
+  defaultValues block referencing `password` (no `must_reset_pw` left,
+  but the password default-empty UX should be reviewed alongside the
+  self-register flow).
+- A proper `/register` page that lets a brand-new member create their
+  own auth.users row + public.users row + public.members row is **not
+  built yet**. The branch only stages the wipe and the machinery
+  removal. Building `/register` is the next step after this lands.
 
 ---
 
