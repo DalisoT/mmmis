@@ -14,9 +14,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0" />
     <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <script>
+      // Pre-hydration theme bootstrap. Reads the same key the React toggle
+      // uses (localStorage 'mmmis:theme') and falls back to the user's OS
+      // preference. The class must land on <html> BEFORE React mounts,
+      // otherwise the user sees a flash of the wrong theme and the toggle
+      // (which targets <html>) appears to do nothing because <body> still
+      // has the hardcoded dark class.
+      (function () {
+        try {
+          var stored = localStorage.getItem('mmmis:theme');
+          var theme = (stored === 'dark' || stored === 'light')
+            ? stored
+            : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          if (theme === 'dark') document.documentElement.classList.add('dark');
+        } catch (_) {
+          // localStorage unavailable (private mode, etc.) — fall back to dark
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
     <title>MMMIS - Military Mess Management Information System</title>
   </head>
-  <body class="dark">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
