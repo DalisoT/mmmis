@@ -156,17 +156,14 @@ security definer
 set search_path = public
 as $$
 declare
-  v_member_user_id uuid;
   v_barman_name    text;
   v_total_text     text;
 begin
-  select m.user_id into v_member_user_id
-    from public.members m
-   where m.id = NEW.member_id;
-  if v_member_user_id is null then
-    return NEW;
-  end if;
-
+  -- chit_authorization_requests.member_id is a FK to public.users(id)
+  -- directly — there is no public.members.id column, the members table
+  -- is keyed by user_id. So we already have the recipient's user id in
+  -- NEW.member_id. members is only joined for the display name in case
+  -- we want a richer copy later.
   select u.full_name into v_barman_name
     from public.users u
    where u.id = NEW.created_by;
@@ -175,7 +172,7 @@ begin
 
   insert into public.push_outbox (user_id, kind, title, body, url, tag, payload)
   values (
-    v_member_user_id,
+    NEW.member_id,
     'chit.authorization_requested',
     'Approve a CHIT purchase',
     coalesce(v_barman_name, 'The barman') || ' is requesting ' || v_total_text || ' on your CHIT account.',
@@ -184,6 +181,12 @@ begin
     jsonb_build_object('request_id', NEW.id, 'total_amount', NEW.total_amount)
   );
 
+  return NEW;
+exception when others then
+  -- A push failure must NEVER roll back the actual CHIT checkout. Log
+  -- it in push_outbox with last_error set so the dashboard can flag
+  -- broken notifications, and let the parent INSERT succeed.
+  raise warning 'trg_chit_auth_request_notify failed: % (%)', sqlerrm, sqlstate;
   return NEW;
 end;
 $$;
@@ -211,10 +214,13 @@ begin
     return NEW;
   end if;
 
+  -- chit_authorization_requests.member_id is FK to public.users(id).
+  -- members.user_id is the matching PK; join on that for the display
+  -- name. There's no public.members.id column.
   select concat_ws(' ', u.first_name, u.last_name) into v_member_name
-    from public.members m
-    join public.users u on u.id = m.user_id
-   where m.id = NEW.member_id;
+    from public.users u
+    left join public.members m on m.user_id = u.id
+   where u.id = NEW.member_id;
 
   v_status_text := case NEW.status
     when 'authorized'      then 'approved'
@@ -235,6 +241,10 @@ begin
     jsonb_build_object('request_id', NEW.id, 'status', NEW.status)
   );
 
+  return NEW;
+exception when others then
+  -- Never block the actual CHIT checkout on a push failure.
+  raise warning 'trg_chit_auth_request_resolved failed: % (%)', sqlerrm, sqlstate;
   return NEW;
 end;
 $$;
