@@ -34,7 +34,6 @@ type RegisterValues = z.infer<typeof registerSchema>;
 export function RegisterPage() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
 
   const {
     register, handleSubmit,
@@ -57,17 +56,18 @@ export function RegisterPage() {
       });
       if (error) throw error;
 
-      // Supabase returns a user but with a null session when email
-      // confirmation is required. The trigger we added in
-      // supabase/migrations/0015_phase15_member_self_signup.sql will have
-      // already created the public.users + public.members rows.
-      if (data.session) {
-        toast.success('Account created. You are now signed in.');
-        navigate('/portal', { replace: true });
-      } else {
-        setDone(true);
-        toast.success('Account created. Check your email to confirm, then sign in.');
+      // Email confirmation is disabled on the project, so Supabase always
+      // returns a session here — the user is signed in immediately. The
+      // 0015 fn_handle_new_auth_user trigger has already created the
+      // public.users + public.members rows server-side.
+      if (!data.session) {
+        // Defensive: if a future Supabase config change ever turns
+        // confirmation back on, fail loudly rather than silently logging
+        // the user in as unconfirmed.
+        throw new Error('Account created but sign-in failed. Try signing in manually.');
       }
+      toast.success('Account created. You are now signed in.');
+      navigate('/portal', { replace: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not create account');
     } finally {
@@ -85,98 +85,87 @@ export function RegisterPage() {
             Register as a mess member. Your administrator will add rank and unit details after sign-up.
           </CardDescription>
         </CardHeader>
-        {done ? (
-          <CardContent className="space-y-3 text-sm">
-            <p className="rounded-md border bg-muted/40 p-3">
-              Your account has been created. Check your inbox for a confirmation email, then sign in.
-            </p>
-            <Button asChild variant="outline" className="w-full">
-              <Link to="/login"><ArrowLeft className="mr-2 h-4 w-4" /> Back to sign in</Link>
-            </Button>
+        <form onSubmit={onSubmit} noValidate>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="service_number">Service number</Label>
+              <Input
+                id="service_number"
+                autoComplete="username"
+                placeholder="e.g. ZM-12345"
+                {...register('service_number')}
+                aria-invalid={!!errors.service_number}
+              />
+              {errors.service_number && (
+                <p className="text-xs text-destructive">{errors.service_number.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Full name</Label>
+              <Input
+                id="full_name"
+                autoComplete="name"
+                {...register('full_name')}
+                aria-invalid={!!errors.full_name}
+              />
+              {errors.full_name && (
+                <p className="text-xs text-destructive">{errors.full_name.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                {...register('email')}
+                aria-invalid={!!errors.email}
+              />
+              {errors.email && (
+                <p className="text-xs text-destructive">{errors.email.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <PasswordInput
+                id="password"
+                autoComplete="new-password"
+                {...register('password')}
+                aria-invalid={!!errors.password}
+              />
+              {errors.password ? (
+                <p className="text-xs text-destructive">{errors.password.message}</p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  At least 8 characters with upper, lower, and a number.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm">Confirm password</Label>
+              <PasswordInput
+                id="confirm"
+                autoComplete="new-password"
+                {...register('confirm')}
+                aria-invalid={!!errors.confirm}
+              />
+              {errors.confirm && (
+                <p className="text-xs text-destructive">{errors.confirm.message}</p>
+              )}
+            </div>
           </CardContent>
-        ) : (
-          <form onSubmit={onSubmit} noValidate>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="service_number">Service number</Label>
-                <Input
-                  id="service_number"
-                  autoComplete="username"
-                  placeholder="e.g. ZM-12345"
-                  {...register('service_number')}
-                  aria-invalid={!!errors.service_number}
-                />
-                {errors.service_number && (
-                  <p className="text-xs text-destructive">{errors.service_number.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="full_name">Full name</Label>
-                <Input
-                  id="full_name"
-                  autoComplete="name"
-                  {...register('full_name')}
-                  aria-invalid={!!errors.full_name}
-                />
-                {errors.full_name && (
-                  <p className="text-xs text-destructive">{errors.full_name.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  {...register('email')}
-                  aria-invalid={!!errors.email}
-                />
-                {errors.email && (
-                  <p className="text-xs text-destructive">{errors.email.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <PasswordInput
-                  id="password"
-                  autoComplete="new-password"
-                  {...register('password')}
-                  aria-invalid={!!errors.password}
-                />
-                {errors.password ? (
-                  <p className="text-xs text-destructive">{errors.password.message}</p>
-                ) : (
-                  <p className="text-[11px] text-muted-foreground">
-                    At least 8 characters with upper, lower, and a number.
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm">Confirm password</Label>
-                <PasswordInput
-                  id="confirm"
-                  autoComplete="new-password"
-                  {...register('confirm')}
-                  aria-invalid={!!errors.confirm}
-                />
-                {errors.confirm && (
-                  <p className="text-xs text-destructive">{errors.confirm.message}</p>
-                )}
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-2">
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create account
-              </Button>
-              <Button asChild variant="ghost" className="w-full">
-                <Link to="/login">
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to sign in
-                </Link>
-              </Button>
-            </CardFooter>
-          </form>
-        )}
+          <CardFooter className="flex flex-col gap-2">
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create account
+            </Button>
+            <Button asChild variant="ghost" className="w-full">
+              <Link to="/login">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to sign in
+              </Link>
+            </Button>
+          </CardFooter>
+        </form>
       </Card>
     </div>
   );
