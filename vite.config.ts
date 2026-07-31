@@ -18,8 +18,17 @@ export default defineConfig({
     //   - auto-update so users always have the latest version
     //     without having to clear app data
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       injectRegister: 'auto',
+      injectManifest: {
+        // Cap precache size so a typo'd CSS bundle doesn't bloat the
+        // first-install payload. Workbox still emits all entries; we
+        // just refuse to precache anything heavier than this.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
       includeAssets: [
         'favicon.svg',
         'favicon.ico',

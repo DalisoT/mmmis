@@ -14,6 +14,7 @@ import { BottomTabBar, type TabBarItem } from './BottomTabBar';
 import { NavDrawer } from './NavDrawer';
 import { InstallBanner, UpdateBanner, OfflineIndicator } from '@/pwa/InstallBanner';
 import { QueuePill } from '@/pwa/QueuePill';
+import { useAutoPushSubscribe } from '@/pwa/usePushSubscription';
 import { cn } from '@/lib/utils';
 import { useIsBelow } from '@/hooks/useBreakpoint';
 import type { AppRoleCode } from '@/types/database.placeholder';
@@ -82,6 +83,9 @@ export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isPhoneOrTablet = useIsBelow('lg');
+  // Best-effort auto-subscribe to web push. Silent on failure — push
+  // is a nice-to-have, not a blocker for the rest of the app.
+  useAutoPushSubscribe();
 
   if (!user) return null;
   const items = NAV.filter((i) => i.roles.includes(user.role_code));
