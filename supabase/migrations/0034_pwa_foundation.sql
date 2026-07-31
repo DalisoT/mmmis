@@ -26,6 +26,41 @@
 set search_path = public;
 
 -- ---------------------------------------------------------------------------
+-- 0. Helper: public.current_user_id()
+--
+-- Translates the JWT subject (auth.users.id) into the corresponding
+-- public.users.id, which is what the FK targets in offline_action_log /
+-- push_subscriptions. Wrapping the auth_id→id lookup in a SQL function
+-- lets RLS policy expressions stay readable and avoids repeating the
+-- subselect everywhere.
+--
+-- This DB didn't have it before Phase 19 (the rest of the codebase
+-- spells out `(select id from public.users where auth_id = auth.uid())`
+-- inline). Keeping a function here means 0034 / 0035 are self-contained
+-- even on a fresh project.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if not exists (
+    select 1 from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'current_user_id'
+  ) then
+    create or replace function public.current_user_id()
+      returns uuid
+      language sql
+      stable
+      security definer
+      set search_path = public
+    as $$
+      select id from public.users where auth_id = auth.uid() limit 1
+    $$;
+    grant execute on function public.current_user_id() to authenticated;
+  end if;
+end
+$$;
+
+-- ---------------------------------------------------------------------------
 -- 1. offline_action_log
 -- ---------------------------------------------------------------------------
 
