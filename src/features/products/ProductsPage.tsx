@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils';
 import { useConfirm } from '@/hooks/useConfirm';
+import { toast } from '@/lib/toast';
 import {
   useProducts, useCreateProduct, useUpdateProduct, useDeactivateProduct,
   productFormSchema, PRODUCT_CATEGORIES,
@@ -58,7 +59,15 @@ export function ProductsPage() {
             </Button>
           </DialogTrigger>
           <ProductDialog
-            onSubmit={async (values) => { await createProduct.mutateAsync(values); setOpen(false); }}
+            onSubmit={async (values) => {
+              try {
+                await createProduct.mutateAsync(values);
+                setOpen(false);
+                toast.success('Product created.');
+              } catch (err) {
+                toast.error(humaniseProductError(err, 'create'));
+              }
+            }}
             submitting={createProduct.isPending}
           />
         </Dialog>
@@ -195,8 +204,13 @@ export function ProductsPage() {
           <ProductDialog
             initial={editing}
             onSubmit={async (values) => {
-              await updateProduct.mutateAsync({ id: editing.id, values });
-              setEditing(null);
+              try {
+                await updateProduct.mutateAsync({ id: editing.id, values });
+                setEditing(null);
+                toast.success('Product updated.');
+              } catch (err) {
+                toast.error(humaniseProductError(err, 'update'));
+              }
             }}
             submitting={updateProduct.isPending}
           />
@@ -303,4 +317,29 @@ function Field({
       {error && <p className="mt-1 text-[11px] text-destructive">{error}</p>}
     </div>
   );
+}
+
+function humaniseProductError(err: unknown, action: 'create' | 'update'): string {
+  // Supabase error shape: { code, message, details, hint }
+  const e = err as { code?: string; message?: string } | null;
+  const code = e?.code ?? '';
+  const msg = e?.message ?? '';
+
+  if (code === '23505' && msg.includes('products_barcode_key')) {
+    return 'That barcode is already used by another product. Clear it or use a different one.';
+  }
+  if (code === '23505' && msg.includes('products_name_unique')) {
+    return 'A product with that name already exists.';
+  }
+  if (code === '23505') {
+    return 'A product with those details already exists.';
+  }
+  if (code === '42501') {
+    return 'You do not have permission to save products.';
+  }
+  if (code === '23503') {
+    return 'A referenced item (e.g. category or unit) is no longer valid.';
+  }
+  if (msg) return msg;
+  return action === 'create' ? 'Could not create product.' : 'Could not update product.';
 }

@@ -14,7 +14,10 @@ export const productFormSchema = z.object({
   unit: z.string().min(1, 'Unit required'),
   opening_stock: z.coerce.number().int().min(0),
   minimum_stock: z.coerce.number().int().min(0),
-  barcode: z.string().optional(),
+  barcode: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== '' ? v.trim() : null)),
   status: z.enum(['active', 'inactive']),
 });
 export type ProductFormValues = z.infer<typeof productFormSchema>;
