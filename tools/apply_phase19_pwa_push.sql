@@ -32,26 +32,28 @@ set search_path = public;
 -- 1. Helper: public.current_user_id()
 -- ---------------------------------------------------------------------------
 
-do $$
+do $apply$
 begin
   if not exists (
     select 1 from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = 'current_user_id'
   ) then
+    -- Use a distinct dollar-quote tag for the function body so the
+    -- outer $apply$ block doesn't think it ends at the inner $$.
     create or replace function public.current_user_id()
       returns uuid
       language sql
       stable
       security definer
       set search_path = public
-    as $$
+    as $fn$
       select id from public.users where auth_id = auth.uid() limit 1
-    $$;
+    $fn$;
     grant execute on function public.current_user_id() to authenticated;
   end if;
 end
-$$;
+$apply$;
 
 -- ---------------------------------------------------------------------------
 -- 2. offline_action_log

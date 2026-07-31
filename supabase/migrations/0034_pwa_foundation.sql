@@ -39,26 +39,28 @@ set search_path = public;
 -- inline). Keeping a function here means 0034 / 0035 are self-contained
 -- even on a fresh project.
 -- ---------------------------------------------------------------------------
-do $$
+do $apply$
 begin
   if not exists (
     select 1 from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = 'current_user_id'
   ) then
+    -- Distinct dollar-quote tag for the function body so this $apply$
+    -- block doesn't terminate at the inner $$.
     create or replace function public.current_user_id()
       returns uuid
       language sql
       stable
       security definer
       set search_path = public
-    as $$
+    as $fn$
       select id from public.users where auth_id = auth.uid() limit 1
-    $$;
+    $fn$;
     grant execute on function public.current_user_id() to authenticated;
   end if;
 end
-$$;
+$apply$;
 
 -- ---------------------------------------------------------------------------
 -- 1. offline_action_log
