@@ -12,6 +12,8 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { ThemeToggle } from './ThemeToggle';
 import { BottomTabBar, type TabBarItem } from './BottomTabBar';
 import { NavDrawer } from './NavDrawer';
+import { InstallBanner, UpdateBanner, OfflineIndicator } from '@/pwa/InstallBanner';
+import { QueuePill } from '@/pwa/QueuePill';
 import { cn } from '@/lib/utils';
 import { useIsBelow } from '@/hooks/useBreakpoint';
 import type { AppRoleCode } from '@/types/database.placeholder';
@@ -145,6 +147,7 @@ export function AppShell() {
         {/* Right-side: theme + user + sign-out */}
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <ThemeToggle />
+          <div className="hidden sm:block"><QueuePill /></div>
           <span className="hidden text-right text-xs sm:block">
             <div className="font-medium leading-tight">{user.full_name}</div>
             <div className="text-muted-foreground">{user.role_name}</div>
@@ -208,6 +211,12 @@ export function AppShell() {
         onClose={() => setDrawerOpen(false)}
         items={tabItems}
       />
+
+      {/* PWA: offline indicator under the header, install/update banners
+          floating above the bottom tab bar. */}
+      <OfflineIndicator />
+      <InstallBanner />
+      <UpdateBanner />
     </div>
   );
 }

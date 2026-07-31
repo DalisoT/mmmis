@@ -7,7 +7,17 @@
       "Bash(git -C \"C:/Users/PATRICIA\" branch -a)",
       "Bash(git -C \"C:/Users/PATRICIA\" log --oneline --all -5)",
       "Bash(curl:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash('/c/Users/PATRICIA/AppData/Local/npm-cache/_npx/aa8e5c70f9d8d161/node_modules/supabase/bin/supabase.exe' secrets unset BOOTSTRAP_SECRET)",
+      "Bash('/c/Users/PATRICIA/AppData/Local/npm-cache/_npx/aa8e5c70f9d8d161/node_modules/supabase/bin/supabase.exe' secrets unset --yes BOOTSTRAP_SECRET)",
+      "Bash(env)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run build)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFix mobile scroll in dialogs by capping height and enabling internal scroll\n\nDialogContent used fixed centering with translate-y-[-50%] and no max-height,\nso tall forms (e.g. ProductDialog with 9 fields) overflowed the viewport on\nmobile and could not be scrolled because body scroll was locked by Radix.\n\nAdding max-h-[90vh] overflow-y-auto to the className makes the dialog\nitself scroll internally, so every Radix dialog in the app (Products,\nMembers, ChitPayments, Receipts, Confirm dialogs) is now usable on phones.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push)",
+      "Bash(git commit:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

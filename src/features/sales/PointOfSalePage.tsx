@@ -27,6 +27,7 @@ import { useProducts } from '@/features/products/products.service';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { useCountdown, formatCountdown } from '@/hooks/useCountdown';
+import { useOfflineChitAuthorization, useOfflineCashSale } from '@/pwa/useOfflineSale';
 import {
   useMemberSearch, useCreateSale, useCreateExpense, verifyMemberPassword,
   useCreateChitAuthorization, useManualOverrideAuthorization,
@@ -55,6 +56,9 @@ export function PointOfSalePage() {
   const manualOverride = useManualOverrideAuthorization();
   const cancelAuth = useCancelChitAuthorization();
   const finalizeAuth = useFinalizeChitAuthorization();
+  const offlineChit = useOfflineChitAuthorization();
+  const offlineCash = useOfflineCashSale();
+  const [offlineBusy, setOfflineBusy] = useState(false);
 
   const addToCart = (productId: string) => {
     const p = activeProducts.find((x) => x.id === productId);
@@ -107,17 +111,37 @@ export function PointOfSalePage() {
     // CHIT: create the authorization request server-side first so the row
     // exists before the dialog opens (otherwise the Realtime subscription
     // mounted when the dialog opens can race against the INSERT).
+    //
+    // Offline-aware: if the network drops between "Confirm" and the RPC
+    // reaching Supabase, we queue the request in IndexedDB and the
+    // buyer-approval dialog does NOT open — there's no row for the
+    // member to approve until the queue flushes. We clear the cart
+    // instead, surface a loud toast, and let the barman record the
+    // CHIT manually once the network returns.
     void (async () => {
+      setOfflineBusy(true);
       try {
-        const r = await createAuth.mutateAsync({
+        const r = await offlineChit({
           member_id: selectedMember!.user_id,
           items: cart,
           total_amount: total,
         });
-        setAuthRequest({ id: r.request_id, expires_at: r.expires_at });
+        if (r.queued) {
+          // Offline-queued: no server row, no approval dialog. Clear
+          // the cart so the barman can move on; the queued row is
+          // visible in the header's <QueuePill /> and will sync on
+          // reconnect. The member will need to be told the sale is
+          // pending ("I'll get the approval push when the WiFi comes
+          // back") but we don't block the bar.
+          await applyFinalizedSale(r.request_id, total);
+          return;
+        }
+        setAuthRequest({ id: r.request_id, expires_at: '' /* filled by RPC */ });
         setShowAuth(true);
       } catch (e: any) {
         toast.error(`Could not begin CHIT checkout: ${e.message ?? String(e)}`);
+      } finally {
+        setOfflineBusy(false);
       }
     })();
   };
@@ -140,17 +164,19 @@ export function PointOfSalePage() {
     setAuthRequest(null);
   };
 
-  /** Cash branch only — no auth row needed. */
+  /** Cash branch only — no auth row needed. Offline-aware. */
   const finalizeCashSale = async () => {
+    setOfflineBusy(true);
     try {
-      const result = await createSale.mutateAsync({
-        sale_type: 'cash',
-        member_id: null,
-        items: cart,
-      });
-      await applyFinalizedSale(result.saleId, Number(result.total_amount ?? 0));
+      const result = await offlineCash({ items: cart });
+      // Offline-queued sales don't have a server-side id yet; we still
+      // clear the cart + close the dialog so the barman can move on.
+      // The QueuePill in the header surfaces the pending row.
+      await applyFinalizedSale(result.sale_id ?? 'queued', total);
     } catch (e: any) {
       toast.error(`Sale failed: ${e.message ?? String(e)}`);
+    } finally {
+      setOfflineBusy(false);
     }
   };
 
@@ -331,9 +357,10 @@ export function PointOfSalePage() {
                 || createAuth.isPending
                 || createSale.isPending
                 || finalizeAuth.isPending
+                || offlineBusy
               }
             >
-              {(createAuth.isPending || createSale.isPending || finalizeAuth.isPending) && (
+              {(createAuth.isPending || createSale.isPending || finalizeAuth.isPending || offlineBusy) && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               {mode === 'cash' ? 'Complete Cash Sale' : 'Send to Member for Approval'}
@@ -352,7 +379,7 @@ export function PointOfSalePage() {
             total={total}
             onConfirm={finalizeCashSale}
             onCancel={() => setShowAuth(false)}
-            submitting={createSale.isPending}
+            submitting={createSale.isPending || offlineBusy}
           />
         )}
         {mode === 'chit' && authRequest && selectedMember && (

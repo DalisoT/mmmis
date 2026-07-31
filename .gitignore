@@ -27,3 +27,6 @@ lerna-debug.log*
 
 # Build
 *.tsbuildinfo
+
+# Supabase CLI transient cache
+supabase/.temp/
