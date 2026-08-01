@@ -47,23 +47,31 @@ copies.
 
 ## 3. Verify the backup
 
-```bash
-npx tsx scripts/backup-verify.ts
-```
-
-The script connects to the **live** database and prints the row count of
-every critical table. Use it as a smoke test, then re-run it after a
-restore to confirm the restored database has the expected volume.
-
-For a stronger check, restore the dump to a scratch database and run the
-verifier against that:
+The verifier is intentionally read-only. Its preferred target is an isolated
+scratch database after restoring the dump:
 
 ```bash
 createdb mmmis_scratch
 pg_restore --dbname=mmmis_scratch --no-owner --no-privileges mmmis-YYYYMMDD.dump
-SUPABASE_DB_URL=postgres://localhost/mmmis_scratch npx tsx scripts/backup-verify.ts
+BACKUP_VERIFY_DB_URL=postgres://localhost/mmmis_scratch npm run backup:verify
 dropdb mmmis_scratch
 ```
+
+It verifies that critical application tables exist, prints their row counts,
+and confirms that the singleton `mess_settings` row (`id = 1`) exists. Empty
+transactional tables are valid and do not fail verification.
+
+To run the same schema smoke check against the live database before taking a
+backup, set the explicit safety flag:
+
+```bash
+SUPABASE_DB_URL=postgres://... ALLOW_LIVE_BACKUP_VERIFY=true npm run backup:verify
+```
+
+This logical dump covers the `public` application schema only. It is not a full
+Supabase project backup: Auth users, Storage objects, and platform-managed
+schemas still depend on Supabase managed backups/PITR and separate Storage
+protection.
 
 ## 4. Restore procedure
 
@@ -115,7 +123,7 @@ dropdb mmmis_scratch
 7. **Verify**:
 
    ```bash
-   SUPABASE_DB_URL=$SUPABASE_DB_URL npx tsx scripts/backup-verify.ts
+   BACKUP_VERIFY_DB_URL=$BACKUP_VERIFY_DB_URL npm run backup:verify
    ```
 
 8. **Smoke test** by signing in as an administrator and:

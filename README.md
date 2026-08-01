@@ -135,20 +135,29 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-### 4. Deploy Edge Functions
+### 4. Operational commands
+
+All deployment commands run a preflight by default. Live changes require
+`--execute` and `CONFIRM_SUPABASE_PROJECT_REF` set to the target project ref.
 
 ```bash
-# using tools/supabase.ps1 (wrapper around the cached npx CLI)
-pwsh tools/supabase.ps1 functions deploy bootstrap-admin --no-verify-jwt
-pwsh tools/supabase.ps1 functions deploy create-user --no-verify-jwt
-pwsh tools/supabase.ps1 functions deploy chit-authorize --no-verify-jwt
-pwsh tools/supabase.ps1 functions deploy password-reset --no-verify-jwt
-pwsh tools/supabase.ps1 functions deploy admin-reset-password --no-verify-jwt
-pwsh tools/supabase.ps1 functions deploy set-member-email --no-verify-jwt
-pwsh tools/supabase.ps1 functions deploy bulk-seed-members --no-verify-jwt
-pwsh tools/supabase.ps1 functions deploy expire-chit-authorizations --no-verify-jwt
-pwsh tools/supabase.ps1 functions deploy push-dispatch --no-verify-jwt
+# Guarded migration preflight. This currently blocks on the historical
+# destructive 0030 migration until the remote migration ledger is reconciled.
+npm run db:migrate
+
+# Deploy the standard Edge Function set (admin-wipe-auth-users is excluded).
+CONFIRM_SUPABASE_PROJECT_REF=<project-ref> npm run fn:deploy -- --execute
+
+# Deploy one function.
+CONFIRM_SUPABASE_PROJECT_REF=<project-ref> npm run fn:deploy -- push-dispatch --execute
+
+# Verify a database restored from a logical backup.
+BACKUP_VERIFY_DB_URL=postgres://localhost/mmmis_scratch npm run backup:verify
 ```
+
+The platform gateway JWT check is disabled during Edge Function deployment;
+each function performs its own authentication and role checks. Verify required
+function secrets and the `push-dispatch` Database Webhook after deployment.
 
 ### 5. Create the first administrator
 
@@ -184,14 +193,18 @@ values (
 
 ## Scripts
 
-| Command             | Description                                       |
-| ------------------- | ------------------------------------------------- |
-| `npm run dev`       | Start Vite dev server                             |
-| `npm run build`     | Type-check (`tsc -b`) + production build          |
-| `npm run preview`   | Preview the production build                      |
-| `npm run typecheck` | Type-check only                                   |
-| `npm run lint`      | ESLint                                            |
-| `npm run db:types`  | Regenerate `database.generated.ts` from Supabase  |
+| Command                 | Description                                       |
+| ----------------------- | ------------------------------------------------- |
+| `npm run dev`           | Start Vite dev server                             |
+| `npm run build`         | Type-check (`tsc -b`) + production build          |
+| `npm run preview`       | Preview the production build                      |
+| `npm run typecheck`     | Type-check only                                   |
+| `npm run lint`          | ESLint                                            |
+| `npm run test`          | Run the Vitest suite                              |
+| `npm run db:migrate`    | Guarded migration preflight / execution           |
+| `npm run db:types`      | Regenerate `database.generated.ts` from Supabase  |
+| `npm run fn:deploy`     | Guarded Edge Function preflight / deployment      |
+| `npm run backup:verify` | Verify a live or restored application database    |
 
 ---
 
