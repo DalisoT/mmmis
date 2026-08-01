@@ -81,33 +81,33 @@ export function SettingsPage() {
           ) : (
             <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2 max-w-3xl">
               <div className="space-y-2">
-                <Label>Mess name</Label>
-                <Input {...register('mess_name')} />
+                <Label htmlFor="mess_name">Mess name</Label>
+                <Input id="mess_name" {...register('mess_name')} />
                 {errors.mess_name && <p className="text-xs text-destructive">{errors.mess_name.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label>Currency code (ISO 4217)</Label>
-                <Input {...register('currency_code')} maxLength={3} />
+                <Label htmlFor="currency_code">Currency code (ISO 4217)</Label>
+                <Input id="currency_code" {...register('currency_code')} maxLength={3} />
                 {errors.currency_code && <p className="text-xs text-destructive">{errors.currency_code.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label>Opening float (ZMW)</Label>
-                <Input type="number" step="0.01" {...register('opening_float')} />
+                <Label htmlFor="opening_float">Opening float (ZMW)</Label>
+                <Input id="opening_float" type="number" step="0.01" {...register('opening_float')} />
                 {errors.opening_float && <p className="text-xs text-destructive">{errors.opening_float.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label>CHIT recovery target (%)</Label>
-                <Input type="number" step="0.01" min={0} max={100} {...register('recovery_target_pct')} />
+                <Label htmlFor="recovery_target_pct">CHIT recovery target (%)</Label>
+                <Input id="recovery_target_pct" type="number" step="0.01" min={0} max={100} {...register('recovery_target_pct')} />
                 {errors.recovery_target_pct && <p className="text-xs text-destructive">{errors.recovery_target_pct.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label>VAT / Tax (%)</Label>
-                <Input type="number" step="0.01" min={0} max={100} {...register('vat_pct')} />
+                <Label htmlFor="vat_pct">VAT / Tax (%)</Label>
+                <Input id="vat_pct" type="number" step="0.01" min={0} max={100} {...register('vat_pct')} />
                 {errors.vat_pct && <p className="text-xs text-destructive">{errors.vat_pct.message}</p>}
               </div>
               <div className="space-y-2 md:col-span-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" {...register('holiday_mode')} className="h-4 w-4 rounded border" />
+                <label htmlFor="holiday_mode" className="flex items-center gap-2 text-sm">
+                  <input id="holiday_mode" type="checkbox" {...register('holiday_mode')} className="h-4 w-4 rounded border" />
                   Holiday mode (locks new CHIT sales)
                 </label>
               </div>

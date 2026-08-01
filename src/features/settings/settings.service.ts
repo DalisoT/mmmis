@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
-import { logAudit } from '@/features/audit/audit';
 
 export interface MessSettings {
   id: number;
@@ -50,33 +49,20 @@ export function useUpdateMessSettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: SettingsFormValues) => {
-      const { data: prev } = await supabase
-        .from('mess_settings')
-        .select('opening_float, recovery_target_pct, vat_pct, holiday_mode, mess_name, currency_code')
-        .eq('id', 1)
-        .single();
-      const { data, error } = await supabase
-        .from('mess_settings')
-        .update({
-          opening_float: values.opening_float,
-          recovery_target_pct: values.recovery_target_pct,
-          vat_pct: values.vat_pct,
-          holiday_mode: values.holiday_mode,
-          mess_name: values.mess_name,
-          currency_code: values.currency_code,
-        })
-        .eq('id', 1)
-        .select()
-        .single();
-      if (error) throw error;
-      await logAudit({
-        action: 'settings.update',
-        target_table: 'mess_settings',
-        target_id: '1',
-        old_values: prev ?? undefined,
-        new_values: values,
+      // Atomic path (Phase 36): a single SECURITY DEFINER RPC that upserts
+      // the singleton row, writes the audit_log row, and returns the new
+      // state in the same transaction. Replaces the previous 3-round-trip
+      // (select prev / update / logAudit) which could lose the audit row on
+      // failure and which 406'd when the singleton row was missing.
+      const { data, error } = await supabase.rpc('upsert_mess_settings', {
+        p_mess_name: values.mess_name,
+        p_currency_code: values.currency_code,
+        p_opening_float: values.opening_float,
+        p_recovery_target_pct: values.recovery_target_pct,
+        p_vat_pct: values.vat_pct,
+        p_holiday_mode: values.holiday_mode,
       });
-      // Phase 8: the RPC path replaces the direct insert; nothing else to do.
+      if (error) throw error;
       return data as MessSettings;
     },
     onSuccess: () => {

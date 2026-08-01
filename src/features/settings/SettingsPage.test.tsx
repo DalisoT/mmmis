@@ -59,30 +59,25 @@ const SUCCESS_MUTATION = () => ({
   isPending: false,
 });
 
-// NOTE: SettingsPage labels are not htmlFor-associated (it renders
-// <Label>...</Label> as a sibling of <Input>). This is a known
-// accessibility gap (see P5 in the production-readiness plan). The tests
-// below query by display value or role instead of getByLabelText.
+// Labels are htmlFor-associated with their inputs (P5.3 fix), so we can
+// query by getByLabelText.
 function getMessNameInput() {
-  return screen.getByDisplayValue('Officers Mess') as HTMLInputElement;
+  return screen.getByLabelText('Mess name') as HTMLInputElement;
 }
 function getCurrencyInput() {
-  return screen.getByDisplayValue('ZMW') as HTMLInputElement;
+  return screen.getByLabelText(/Currency code/) as HTMLInputElement;
 }
 function getOpeningFloatInput() {
-  return screen.getByDisplayValue('1000') as HTMLInputElement;
+  return screen.getByLabelText(/Opening float/) as HTMLInputElement;
 }
 function getRecoveryInput() {
-  return screen.getByDisplayValue('30') as HTMLInputElement;
+  return screen.getByLabelText(/CHIT recovery target/) as HTMLInputElement;
 }
 function getVatInput() {
-  return screen.getByDisplayValue('0') as HTMLInputElement;
+  return screen.getByLabelText(/VAT/) as HTMLInputElement;
 }
 function getHolidayCheckbox() {
-  // The label "Holiday mode (locks new CHIT sales)" is a sibling of the
-  // checkbox; the checkbox is the only input on the page whose role
-  // matches.
-  return document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+  return screen.getByLabelText(/Holiday mode/) as HTMLInputElement;
 }
 
 describe('SettingsPage', () => {
