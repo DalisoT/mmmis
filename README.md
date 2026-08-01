@@ -1,26 +1,51 @@
 # MMMIS — Military Mess Management Information System
 
-A modern web application that digitizes a military mess bar's daily operations
-(Stock Sheet, CHIT, CHIT Recovery, Ledger, Expenses, Reports, Audit) while
-preserving the existing paper workflow and terminology.
+A modern web app that digitises a military mess bar's daily operations —
+**Point of Sale, Stock, CHIT (mess credit), CHIT Recovery, Ledger, Expenses,
+Reports, Member Portal, Audit, Backup Health** — while preserving the
+existing paper workflow and terminology.
 
-> **Status:** **Phase 1 — Authentication + User Management.**
-> Phases 2–7 (Stock, Sales & CHIT, Treasurer, Member Portal, Reporting, Admin)
-> will follow the same approach. See `guide.txt` for the full spec.
+- **Live**: <https://mmmis.vercel.app>
+- **Stack**: React 18 + TypeScript + Vite, Supabase (Postgres + Auth + Edge
+  Functions + Realtime + pg_cron), PWA via `vite-plugin-pwa` + Workbox,
+  Tailwind + shadcn-style Radix primitives, TanStack Query, React Hook Form
+  + Zod, Recharts, `@react-pdf/renderer`, `xlsx`.
 
 ---
 
-## Tech stack
+## Status
 
-| Layer            | Choice                                                    |
-| ---------------- | --------------------------------------------------------- |
-| Frontend         | React 18 + TypeScript + Vite                              |
-| Styling          | TailwindCSS + shadcn-style primitives (Radix UI)          |
-| Forms / schema   | React Hook Form + Zod                                     |
-| Data fetching    | TanStack Query                                            |
-| Auth / DB / RLS  | Supabase Auth + PostgreSQL                                |
-| Charts           | Recharts                                                  |
-| PDF / Excel      | Added in Phase 6                                          |
+**Production pilot.** All seven originally-planned phases are implemented and
+shipping. The CHIT two-phase buyer-approval flow, atomic `create_sale()`,
+`create_chit_authorization()` / `finalize_chit_authorization()`, audit triggers,
+RLS on every table, PWA install + offline indicator, and Web Push
+notifications are all live. See `CONTINUE_HERE.md` for the most recent run
+notes.
+
+Roles supported: `administrator`, `treasurer`, `barman`, `member`.
+
+---
+
+## Features
+
+| Module | Routes | Notes |
+| --- | --- | --- |
+| Auth & users | `/login`, `/register`, `/forgot`, `/reset`, `/users` | Service-number + password login, 4-role RBAC, soft-delete |
+| Dashboard | `/` | Role-aware (admin/treasurer/barman/member) |
+| Point of Sale | `/pos` | Cash + CHIT, atomic sale RPC, low-stock aware |
+| Daily summary | `/daily-summary` | PDF download, exports |
+| Products | `/products`, `/products/low-stock` | Soft-delete + active/inactive status |
+| Stock | `/stock-sheet`, `/stock-receipts`, `/stock-valuation` | Daily sheet, receipts, valuation |
+| CHIT | `/outstanding-chit`, `/chit-payments` | Outstanding list, payment recording, recovery tracking |
+| Expenses | `/expenses-admin` | Release / approve workflow |
+| Cash | `/cash-at-hand`, `/reports/cash-closing` | Daily closing with variance |
+| Members | `/members`, `/members-directory`, `/portal/*` | Self-service portal: statement, purchases, payments, profile |
+| Reports | `/reports/pnl`, `/reports/cash-closing` | P&L, cash closing, export |
+| Audit | `/admin/audit`, `/admin/audit/summary`, `/admin/audit/export` | Trigger-stamped rows, summary aggregates, export |
+| Settings | `/admin/settings` | Mess-wide config (name, currency, float, CHIT target, VAT, holiday mode) |
+| Security | `/security`, `/admin/sessions` | Rate-limited login attempts, sessions, lockout |
+| Backup health | `/admin/backups` | Verify + manual trigger |
+| PWA | (no route) | Install, offline indicator, update banner, push notifications |
 
 ---
 
@@ -28,22 +53,44 @@ preserving the existing paper workflow and terminology.
 
 ```
 mmmis/
-├─ supabase/
-│  └─ migrations/
-│     └─ 0001_init.sql          ← initial schema, roles, RLS
 ├─ src/
 │  ├─ components/
-│  │  ├─ layout/                ← AppShell, ThemeToggle
-│  │  └─ ui/                    ← button, card, dialog, input, ...
+│  │  ├─ layout/        AppShell, BottomTabBar, NavDrawer, ThemeToggle
+│  │  └─ ui/            button, card, dialog, input, table, toast, ...
 │  ├─ features/
-│  │  ├─ auth/                  ← LoginPage, AuthContext, guards
-│  │  ├─ users/                 ← UsersPage + users.service
-│  │  ├─ dashboard/             ← DashboardPage (role-aware)
-│  │  └─ audit/                 ← audit log helpers
-│  ├─ lib/                      ← supabase client, utils
-│  └─ types/                    ← app types (DB types regenerated later)
-├─ index.html
-└─ package.json
+│  │  ├─ admin/         AuditLogPage, BackupHealthPage, audit export
+│  │  ├─ audit/         audit helpers, export, summary
+│  │  ├─ auth/          Login, Register, Forgot/Reset password, guards
+│  │  ├─ dashboard/     role-aware dashboard
+│  │  ├─ member/        MemberPortalPage, statement, purchases, payments
+│  │  ├─ products/      ProductsPage, low-stock
+│  │  ├─ reports/       P&L, cash closing, reports service
+│  │  ├─ sales/         POS, DailySummaryPage, DailySummaryPDF
+│  │  ├─ security/      SecurityPage, SessionsListPage
+│  │  ├─ settings/      SettingsPage + service
+│  │  ├─ stock/         StockSheetPage, receipts, valuation, PDF
+│  │  ├─ treasurer/     ChitPayments, Expenses, Members, Cash at Hand, etc.
+│  │  └─ users/         UsersPage + service
+│  ├─ pwa/              InstallBanner, UpdateBanner, push subscription
+│  ├─ hooks/            useBreakpoint, ...
+│  ├─ lib/              supabase client, utils, toast
+│  └─ types/            database placeholder types
+├─ supabase/
+│  ├─ migrations/       0001_init.sql through 0035_push_notifications.sql
+│  └─ functions/        bootstrap-admin, create-user, chit-authorize,
+│                       password-reset, admin-reset-password,
+│                       set-member-email, bulk-seed-members,
+│                       expire-chit-authorizations, admin-wipe-auth-users,
+│                       push-dispatch
+├─ tools/               Operator scripts (destructive ops live here)
+├─ scripts/             Build-time helpers (backup-verify.ts, ...)
+├─ tests/
+│  ├─ e2e/              Playwright (chit-flow.spec.ts)
+│  ├─ edge/             curl smoke (run.sh)
+│  └─ sql/              hardening smoke, diagnostic
+├─ public/              PWA manifest, icons
+├─ docs/                BACKUP_RESTORE.md
+└─ vercel.json          SPA fallback rewrite
 ```
 
 ---
@@ -52,93 +99,74 @@ mmmis/
 
 ### 1. Provision a Supabase project
 
-1. Go to <https://supabase.com/dashboard> and create a project.
-2. Note your **Project URL** and **anon public key** from
-   _Project Settings → API_.
-3. Open the **SQL Editor** in the dashboard, paste the contents of
-   [`supabase/migrations/0001_init.sql`](./supabase/migrations/0001_init.sql),
-   and click **Run**. This creates all tables, RLS policies, helper
-   functions, and seeds the four roles.
+1. Create a project at <https://supabase.com/dashboard>.
+2. Copy the **Project URL** and **anon public key** from Project Settings → API.
+3. In the SQL editor, run every migration in `supabase/migrations/` **in
+   filename order**. They are idempotent. If you also want pg_cron + the
+   product validation in `create_sale()`, run `tools/apply_pending_migrations.sql`
+   (or run `0028_chit_expiry_cron.sql` + `0029_create_sale_product_validation.sql`
+   directly).
 4. In _Authentication → Providers_, ensure **Email** is enabled.
 
-### 2. Configure environment variables
+### 2. Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in your values:
+Fill in:
 
 ```env
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-public-key
+
+# Required for Web Push
+VITE_VAPID_PUBLIC_KEY=...
 ```
+
+The matching private VAPID key + a contact email go in Supabase Edge
+Function secrets (`VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) so `push-dispatch`
+can sign messages.
 
 ### 3. Install + run
 
 ```bash
 npm install
-npm run dev
+npm run dev          # http://localhost:5173
 ```
 
-Visit <http://localhost:5173>.
+### 4. Deploy Edge Functions
 
-### 4. Create the first administrator
+```bash
+# using tools/supabase.ps1 (wrapper around the cached npx CLI)
+pwsh tools/supabase.ps1 functions deploy bootstrap-admin --no-verify-jwt
+pwsh tools/supabase.ps1 functions deploy create-user --no-verify-jwt
+pwsh tools/supabase.ps1 functions deploy chit-authorize --no-verify-jwt
+pwsh tools/supabase.ps1 functions deploy password-reset --no-verify-jwt
+pwsh tools/supabase.ps1 functions deploy admin-reset-password --no-verify-jwt
+pwsh tools/supabase.ps1 functions deploy set-member-email --no-verify-jwt
+pwsh tools/supabase.ps1 functions deploy bulk-seed-members --no-verify-jwt
+pwsh tools/supabase.ps1 functions deploy expire-chit-authorizations --no-verify-jwt
+pwsh tools/supabase.ps1 functions deploy push-dispatch --no-verify-jwt
+```
 
-Because signup is closed by default, use the SQL Editor to provision your
-first admin user:
+### 5. Create the first administrator
+
+Use `tools/run_bootstrap.ps1` after a fresh wipe, or manually via the
+Supabase dashboard (Authentication → Users → Add user) and then linking
+with SQL:
 
 ```sql
--- 1) Create the auth account via Supabase Dashboard:
---    Authentication → Users → Add user (email + password)
---    Copy the generated UUID ("auth.users.id")
-
--- 2) Link it to public.users with the administrator role
 insert into public.users (auth_id, service_number, full_name, email, role_id, is_active)
 values (
-  '00000000-0000-0000-0000-000000000000', -- replace with auth.users.id
+  '<paste auth.users.id here>',
   'ZM-00001',
   'Initial Administrator',
   'admin@example.com',
-  1,                                       -- administrator role_id
+  1,        -- administrator role_id
   true
 );
 ```
-
-Sign in at `/login` using `ZM-00001` + the password you created.
-
-After that, normal user creation is done from **Dashboard → Users → New User**,
-which provisions both an `auth.users` row (via Supabase Auth) and a
-`public.users` profile.
-
----
-
-## What's implemented in Phase 1
-
-- [x] Vite + React 18 + TypeScript + Tailwind + Radix UI
-- [x] Dark / light theme toggle with persistence
-- [x] Supabase client + typed AuthContext
-- [x] Login with **Service Number + Password**
-- [x] JWT-based session, persisted, auto-refreshed
-- [x] Role-based `<ProtectedRoute>` guards
-- [x] Role-aware shell (Admin sees "Users"; Treasurer/Barman/Member do not)
-- [x] User Management UI (list, search, create, edit, deactivate, role change)
-- [x] Soft-delete flag on `users` (deleted rows are never removed)
-- [x] RLS policies for all four roles on every table
-- [x] Generated `roles` table and seed data
-- [x] Stubbed audit helpers (real server-side writes land in Phase 7)
-- [x] README and `.env.example`
-
-## What's deliberately NOT yet implemented (later phases)
-
-| Phase | Module                                         |
-| ----- | ---------------------------------------------- |
-| 2     | Stock Module + products                        |
-| 3     | Sales & CHIT (barman workflow)                 |
-| 4     | Treasurer: CHIT recovery, expenses, ledger     |
-| 5     | Member Portal                                  |
-| 6     | Reports (PDF + Excel export)                   |
-| 7     | Admin settings, real audit server endpoint     |
 
 ---
 
@@ -147,19 +175,40 @@ which provisions both an `auth.users` row (via Supabase Auth) and a
 - **Strong typing**: no `any`. Boundary types live in `src/types/`.
 - **Feature folders**: each feature owns its UI, service hooks, and types.
 - **No business logic in components** — service files only.
-- **Auditable writes**: any user-management mutation calls
-  `auditUserChange` so that user actions are observable from day one.
-  A real server-side append to `audit_logs` ships in Phase 7.
+- **Auditable writes**: any user-management mutation calls `logAudit`
+  (`src/features/audit/audit.ts`).
+- **Atomic database writes**: sales, CHIT authorisations, and ledger entries
+  happen in single Postgres transactions inside `SECURITY DEFINER` RPCs.
 
 ---
 
 ## Scripts
 
-| Command            | Description                                       |
-| ------------------ | ------------------------------------------------- |
-| `npm run dev`      | Start Vite dev server                             |
-| `npm run build`    | Type-check (`tsc -b`) + production build           |
-| `npm run preview`  | Preview the production build                      |
-| `npm run typecheck`| Type-check only                                   |
-| `npm run lint`     | ESLint                                            |
-| `npm run db:types` | Regenerate `database.generated.ts` from Supabase  |
+| Command             | Description                                       |
+| ------------------- | ------------------------------------------------- |
+| `npm run dev`       | Start Vite dev server                             |
+| `npm run build`     | Type-check (`tsc -b`) + production build          |
+| `npm run preview`   | Preview the production build                      |
+| `npm run typecheck` | Type-check only                                   |
+| `npm run lint`      | ESLint                                            |
+| `npm run db:types`  | Regenerate `database.generated.ts` from Supabase  |
+
+---
+
+## Operations
+
+- **Run notes** — `CONTINUE_HERE.md` (most recent session notes)
+- **Backup + restore** — `docs/BACKUP_RESTORE.md`
+- **Operator scripts** — `tools/README.md` (severity-tagged, do not run
+  destructive scripts without reading the header)
+
+---
+
+## Status of automated tests
+
+| Layer | Coverage |
+| --- | --- |
+| Database (smoke) | `tests/sql/00_hardening_smoke.sql` |
+| Edge Functions (curl) | `tests/edge/run.sh` |
+| E2E (Playwright) | `tests/e2e/chit-flow.spec.ts` |
+| Unit / component | **None yet** — see production-readiness plan, item P2.1 |
