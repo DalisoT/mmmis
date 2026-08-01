@@ -199,7 +199,7 @@ export function AppShell() {
 
       {/* Footer (desktop only) */}
       <footer className="hidden border-t px-4 py-3 text-center text-xs text-muted-foreground sm:block">
-        MMMIS · Phase 9 (Operations) · {new Date().getFullYear()}
+        MMMIS · {new Date().getFullYear()}
       </footer>
 
       {/* Phone bottom tab bar */}
