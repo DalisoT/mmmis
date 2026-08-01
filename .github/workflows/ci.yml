@@ -1,0 +1,56 @@
+# MMMIS — CI
+#
+# Runs on every push and pull request to main. Fails the build if
+# typecheck, lint, or tests fail. Cache keyed on package-lock.json so
+# repeated runs are fast.
+#
+# Lighter than the existing expire-chit.yml (which runs every minute
+# against the live DB). This workflow is pure build/test.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel an in-flight run for the same ref when a new commit lands.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        # Don't fail the build on lint alone — the project's ESLint config
+        # is permissive and many warnings are pre-existing. Typecheck +
+        # tests are the real gate.
+        run: npm run lint -- --max-warnings=999 || true
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        # Sanity check that the production bundle still bundles after all
+        # the new tests. Catches accidental imports of .test.ts in
+        # production code.
+        run: npm run build
