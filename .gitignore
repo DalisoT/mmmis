@@ -10,6 +10,16 @@ dist-ssr
 bulk_member_passwords.md
 __seed_realrun.json
 __seed_admin.tmp
+# The committed blank template lives under fixtures/bulk_members_template.csv;
+# only ignore the loose operational copy that may sit in the repo root.
+/bulk_members_template.csv
+
+# Logical database backups (see docs/BACKUP_RESTORE.md). The dump itself
+# contains every row in public.* and must never be committed; the .sha256
+# sidecar files are local integrity checks, also ignored here.
+*.dump
+*.dump.tmp
+*.dump.sha256
 
 
 # Editor
