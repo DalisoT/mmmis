@@ -30,3 +30,6 @@ lerna-debug.log*
 
 # Supabase CLI transient cache
 supabase/.temp/
+
+# Test coverage output
+coverage/
