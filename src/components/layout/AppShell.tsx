@@ -5,6 +5,7 @@ import {
   ShoppingCart, Activity, Wallet, Receipt, UserRound, Banknote, AlertTriangle,
   Calendar, ShoppingBag, IdCard, ScrollText, Settings as Cog, Menu, Search, TrendingDown, Database,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BrandMark } from '@/components/brand/BrandMark';
@@ -17,69 +18,74 @@ import { QueuePill } from '@/pwa/QueuePill';
 import { useAutoPushSubscribe } from '@/pwa/usePushSubscription';
 import { cn } from '@/lib/utils';
 import { useIsBelow } from '@/hooks/useBreakpoint';
+import { LanguageSwitcher } from '@/i18n/LanguageSwitcher';
 import type { AppRoleCode } from '@/types/database.placeholder';
 
 interface NavItem {
   to: string;
-  label: string;
+  /** i18n key under `nav.*` — translated by `AppShell` at render time. */
+  labelKey: string;
   roles: AppRoleCode[];
   icon: React.ComponentType<{ className?: string }>;
 }
 
 const NAV: NavItem[] = [
-  { to: '/',                       label: 'Dashboard',       roles: ['administrator','treasurer','barman','member'], icon: ShieldCheck },
-  { to: '/pos',                    label: 'Point of Sale',   roles: ['administrator','treasurer','barman'],         icon: ShoppingCart },
-  { to: '/daily-summary',          label: 'Daily Summary',   roles: ['administrator','treasurer','barman'],         icon: Activity },
-  { to: '/products',               label: 'Products',        roles: ['administrator','treasurer','barman'],         icon: Package },
-  { to: '/products/low-stock',     label: 'Low stock',       roles: ['administrator','treasurer','barman'],         icon: TrendingDown },
-  { to: '/stock-receipts',         label: 'Stock Receipts',  roles: ['administrator','treasurer','barman'],         icon: Truck },
-  { to: '/stock-sheet',            label: 'Daily Stock',     roles: ['administrator','treasurer','barman'],         icon: ClipboardList },
-  { to: '/stock-valuation',        label: 'Stock Valuation', roles: ['administrator','treasurer'],                  icon: BarChart3 },
-  { to: '/users',                  label: 'Users',           roles: ['administrator'],                              icon: Users },
-  { to: '/outstanding-chit',       label: 'Outstanding CHIT',roles: ['administrator','treasurer'],                  icon: AlertTriangle },
-  { to: '/chit-payments',          label: 'CHIT Payments',   roles: ['administrator','treasurer'],                  icon: Wallet },
-  { to: '/expenses-admin',         label: 'Expenses',        roles: ['administrator','treasurer'],                  icon: Receipt },
-  { to: '/members',                label: 'Members',         roles: ['administrator','treasurer'],                  icon: UserRound },
-  { to: '/members-directory',      label: 'Directory',       roles: ['administrator','treasurer'],                  icon: Search },
-  { to: '/cash-at-hand',           label: 'Cash at Hand',    roles: ['administrator','treasurer'],                  icon: Banknote },
-  { to: '/reports/pnl',            label: 'Profit & Loss',   roles: ['administrator','treasurer'],                  icon: BarChart3 },
-  { to: '/reports/cash-closing',   label: 'Cash Closing',    roles: ['administrator','treasurer','barman'],         icon: ClipboardList },
-  { to: '/portal',                 label: 'My Mess',         roles: ['member'],                                     icon: IdCard },
-  { to: '/portal/statement',       label: 'Statement',       roles: ['member'],                                     icon: Calendar },
-  { to: '/portal/purchases',       label: 'Purchases',       roles: ['member'],                                     icon: ShoppingBag },
-  { to: '/portal/payments',        label: 'Payments',        roles: ['member'],                                     icon: Wallet },
-  { to: '/portal/profile',         label: 'Profile',         roles: ['member'],                                     icon: UserRound },
-  { to: '/admin/audit',            label: 'Audit log',       roles: ['administrator'],                              icon: ScrollText },
-  { to: '/admin/audit/summary',    label: 'Audit summary',   roles: ['administrator'],                              icon: BarChart3 },
-  { to: '/admin/audit/export',     label: 'Audit export',    roles: ['administrator'],                              icon: ScrollText },
-  { to: '/admin/backups',          label: 'Backup health',   roles: ['administrator','treasurer'],                  icon: Database },
-  { to: '/admin/sessions',         label: 'Sessions',        roles: ['administrator'],                              icon: ShieldCheck },
-  { to: '/admin/settings',         label: 'Settings',        roles: ['administrator'],                              icon: Cog },
-  { to: '/security',               label: 'Security',        roles: ['administrator','treasurer','barman','member'], icon: ShieldCheck },
+  { to: '/',                       labelKey: 'nav.dashboard',       roles: ['administrator','treasurer','barman','member'], icon: ShieldCheck },
+  { to: '/pos',                    labelKey: 'nav.pointOfSale',     roles: ['administrator','treasurer','barman'],         icon: ShoppingCart },
+  { to: '/daily-summary',          labelKey: 'nav.dailySummary',    roles: ['administrator','treasurer','barman'],         icon: Activity },
+  { to: '/products',               labelKey: 'nav.products',        roles: ['administrator','treasurer','barman'],         icon: Package },
+  { to: '/products/low-stock',     labelKey: 'nav.lowStock',        roles: ['administrator','treasurer','barman'],         icon: TrendingDown },
+  { to: '/stock-receipts',         labelKey: 'nav.stockReceipts',   roles: ['administrator','treasurer','barman'],         icon: Truck },
+  { to: '/stock-sheet',            labelKey: 'nav.dailyStock',      roles: ['administrator','treasurer','barman'],         icon: ClipboardList },
+  { to: '/stock-valuation',        labelKey: 'nav.stockValuation',  roles: ['administrator','treasurer'],                  icon: BarChart3 },
+  { to: '/users',                  labelKey: 'nav.users',           roles: ['administrator'],                              icon: Users },
+  { to: '/outstanding-chit',       labelKey: 'nav.outstandingChit', roles: ['administrator','treasurer'],                  icon: AlertTriangle },
+  { to: '/chit-payments',          labelKey: 'nav.chitPayments',    roles: ['administrator','treasurer'],                  icon: Wallet },
+  { to: '/expenses-admin',         labelKey: 'nav.expenses',        roles: ['administrator','treasurer'],                  icon: Receipt },
+  { to: '/members',                labelKey: 'nav.members',         roles: ['administrator','treasurer'],                  icon: UserRound },
+  { to: '/members-directory',      labelKey: 'nav.directory',       roles: ['administrator','treasurer'],                  icon: Search },
+  { to: '/cash-at-hand',           labelKey: 'nav.cashAtHand',      roles: ['administrator','treasurer'],                  icon: Banknote },
+  { to: '/reports/pnl',            labelKey: 'nav.profitLoss',      roles: ['administrator','treasurer'],                  icon: BarChart3 },
+  { to: '/reports/cash-closing',   labelKey: 'nav.cashClosing',     roles: ['administrator','treasurer','barman'],         icon: ClipboardList },
+  { to: '/portal',                 labelKey: 'nav.myMess',          roles: ['member'],                                     icon: IdCard },
+  { to: '/portal/statement',       labelKey: 'nav.statement',       roles: ['member'],                                     icon: Calendar },
+  { to: '/portal/purchases',       labelKey: 'nav.purchases',       roles: ['member'],                                     icon: ShoppingBag },
+  { to: '/portal/payments',        labelKey: 'nav.payments',        roles: ['member'],                                     icon: Wallet },
+  { to: '/portal/profile',         labelKey: 'nav.profile',         roles: ['member'],                                     icon: UserRound },
+  { to: '/admin/audit',            labelKey: 'nav.auditLog',        roles: ['administrator'],                              icon: ScrollText },
+  { to: '/admin/audit/summary',    labelKey: 'nav.auditSummary',    roles: ['administrator'],                              icon: BarChart3 },
+  { to: '/admin/audit/export',     labelKey: 'nav.auditExport',     roles: ['administrator'],                              icon: ScrollText },
+  { to: '/admin/backups',          labelKey: 'nav.backupHealth',    roles: ['administrator','treasurer'],                  icon: Database },
+  { to: '/admin/sessions',         labelKey: 'nav.sessions',        roles: ['administrator'],                              icon: ShieldCheck },
+  { to: '/admin/settings',         labelKey: 'nav.settings',        roles: ['administrator'],                              icon: Cog },
+  { to: '/security',               labelKey: 'nav.security',        roles: ['administrator','treasurer','barman','member'], icon: ShieldCheck },
 ];
 
 /**
  * Build the phone tab bar items.
  * The first 4 go directly on the bar; the rest become "More" overflow.
  */
-function buildPhoneTabs(items: NavItem[], role: AppRoleCode): { primary: TabBarItem[]; overflow: TabBarItem[] } {
+function buildPhoneTabs(items: NavItem[], role: AppRoleCode, translate: (key: string) => string): { primary: TabBarItem[]; overflow: TabBarItem[] } {
   const roleItems = items.filter((i) => i.roles.includes(role));
   // Curated order — surfaces the most-used ops routes first.
   const preferred = ['/', '/pos', '/daily-summary', '/products', '/products/low-stock', '/stock-sheet', '/outstanding-chit', '/chit-payments', '/members', '/members-directory', '/cash-at-hand', '/reports/pnl', '/reports/cash-closing', '/portal', '/portal/purchases', '/security', '/admin/audit'];
   const sorted = [...roleItems].sort((a, b) => {
     const ai = preferred.indexOf(a.to);
     const bi = preferred.indexOf(b.to);
-    if (ai === -1 && bi === -1) return a.label.localeCompare(b.label);
+    if (ai === -1 && bi === -1) return translate(a.labelKey).localeCompare(translate(b.labelKey));
     if (ai === -1) return 1;
     if (bi === -1) return -1;
     return ai - bi;
   });
-  return { primary: sorted.slice(0, 4), overflow: sorted.slice(4) };
+  // Map NavItem -> TabBarItem once so the slice below produces the right shape.
+  const toTabBarItem = (i: NavItem): TabBarItem => ({ to: i.to, label: translate(i.labelKey), icon: i.icon });
+  return { primary: sorted.slice(0, 4).map(toTabBarItem), overflow: sorted.slice(4).map(toTabBarItem) };
 }
 
 export function AppShell() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isPhoneOrTablet = useIsBelow('lg');
@@ -89,8 +95,8 @@ export function AppShell() {
 
   if (!user) return null;
   const items = NAV.filter((i) => i.roles.includes(user.role_code));
-  const phoneTabs = useMemo(() => buildPhoneTabs(NAV, user.role_code), [user.role_code]);
-  const tabItems: TabBarItem[] = items.map(({ to, label, icon }) => ({ to, label, icon }));
+  const phoneTabs = useMemo(() => buildPhoneTabs(NAV, user.role_code, t), [user.role_code, t]);
+  const tabItems: TabBarItem[] = items.map(({ to, labelKey, icon }) => ({ to, label: t(labelKey), icon }));
 
   const handleSignOut = async () => {
     await signOut();
@@ -150,6 +156,7 @@ export function AppShell() {
 
         {/* Right-side: theme + user + sign-out */}
         <div className="ml-auto flex shrink-0 items-center gap-1">
+          <LanguageSwitcher />
           <ThemeToggle />
           <div className="hidden sm:block"><QueuePill /></div>
           <span className="hidden text-right text-xs sm:block">

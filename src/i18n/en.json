@@ -1,0 +1,61 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "pointOfSale": "Point of Sale",
+    "dailySummary": "Daily Summary",
+    "products": "Products",
+    "lowStock": "Low stock",
+    "stockReceipts": "Stock Receipts",
+    "dailyStock": "Daily Stock",
+    "stockValuation": "Stock Valuation",
+    "users": "Users",
+    "outstandingChit": "Outstanding CHIT",
+    "chitPayments": "CHIT Payments",
+    "expenses": "Expenses",
+    "members": "Members",
+    "directory": "Directory",
+    "cashAtHand": "Cash at Hand",
+    "profitLoss": "Profit & Loss",
+    "cashClosing": "Cash Closing",
+    "myMess": "My Mess",
+    "statement": "Statement",
+    "purchases": "Purchases",
+    "payments": "Payments",
+    "profile": "Profile",
+    "auditLog": "Audit log",
+    "auditSummary": "Audit summary",
+    "auditExport": "Audit export",
+    "backupHealth": "Backup health",
+    "sessions": "Sessions",
+    "settings": "Settings",
+    "security": "Security"
+  },
+  "settings": {
+    "title": "Mess Settings",
+    "subtitle": "Configuration shared by every role.",
+    "lastUpdated": "Last updated {{datetime}}",
+    "adminBadge": "Administrator only",
+    "cardTitle": "Mess configuration",
+    "cardDescription": "Used across Point of Sale, Reports, and Member Portal.",
+    "loading": "Loading…",
+    "labels": {
+      "messName": "Mess name",
+      "currencyCode": "Currency code (ISO 4217)",
+      "openingFloat": "Opening float ({{currency}})",
+      "recoveryTarget": "CHIT recovery target (%)",
+      "vat": "VAT / Tax (%)",
+      "holidayMode": "Holiday mode (locks new CHIT sales)"
+    },
+    "save": "Save settings",
+    "saved": "Settings saved",
+    "saveFailed": "Failed to save settings"
+  },
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "bemba": "Bemba"
+  },
+  "common": {
+    "signOut": "Sign out"
+  }
+}

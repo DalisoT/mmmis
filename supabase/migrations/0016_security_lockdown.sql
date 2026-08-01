@@ -138,11 +138,18 @@ grant execute on function public.list_active_sessions() to authenticated;
 -- ---------------------------------------------------------------------------
 -- 4. Audit_log naming drift detection
 --
--- Migration 0008 created `public.audit_logs` (plural). Several subsequent
--- triggers/RPCs reference `public.audit_log` (singular). We don't rename
--- anything here — we just emit a NOTICE so a deployment will surface the
--- drift in the migration log. If the deployed table is named `audit_log`,
--- please run a follow-up migration to align all triggers and RPCs.
+-- Migration 0001 created `public.audit_logs` (plural) as a stub audit table,
+-- and Migration 0008 created a second, separate `public.audit_log`
+-- (singular) which is the one every subsequent trigger / RPC writes to.
+-- Every post-0008 migration (0012, 0012b, 0016, 0036, ...) references the
+-- singular `audit_log`. The plural `audit_logs` is dead and has no FK
+-- targets; the application code never queries it.
+--
+-- We don't rename or drop anything here — we just emit a NOTICE so a
+-- deployment will surface the drift in the migration log. If both tables
+-- are present, drop `public.audit_logs` once you have verified the
+-- singular table is the authoritative one (it has rows, triggers, and
+-- FKs from `audit_log_actor_fkey`).
 -- ---------------------------------------------------------------------------
 
 do $$

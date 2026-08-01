@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
+import { createQueryKeys } from '@/lib/queryKeys';
 
 export interface MessSettings {
   id: number;
@@ -24,14 +25,14 @@ export const settingsFormSchema = z.object({
 });
 export type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
-export const settingsKeys = {
-  all: ['mess-settings'] as const,
-  current: () => [...settingsKeys.all, 'current'] as const,
-};
+export const settingsKeys = createQueryKeys('mess-settings', {
+  all: null,
+  current: 'current',
+});
 
 export function useMessSettings() {
   return useQuery({
-    queryKey: settingsKeys.current(),
+    queryKey: settingsKeys.current,
     queryFn: async (): Promise<MessSettings> => {
       const { data, error } = await supabase
         .from('mess_settings')

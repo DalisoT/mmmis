@@ -1,0 +1,61 @@
+{
+  "nav": {
+    "dashboard": "Icitebelelo",
+    "pointOfSale": "Ukushita",
+    "dailySummary": "Ifwa Lya Bushiku",
+    "products": "Ifwa",
+    "lowStock": "Ifwa shanatekwa",
+    "stockReceipts": "Ukufyashiwa kwa Ifwa",
+    "dailyStock": "Ifwa Lya Bushiku",
+    "stockValuation": "Ubuyo wa Ifwa",
+    "users": "Abafyashi",
+    "outstandingChit": "CHit Yasalapo",
+    "chitPayments": "Indalama sha CHIT",
+    "expenses": "Indalama shisendwa",
+    "members": "Bamemba",
+    "directory": "Inshina ya Bamemba",
+    "cashAtHand": "Indalama sha Lelo",
+    "profitLoss": "Ufwayi na Lusalo",
+    "cashClosing": "Ukukwaisha Indalama",
+    "myMess": "UMes Wandu",
+    "statement": "Ubufwayi",
+    "purchases": "Ifwa nshite",
+    "payments": "Indalama nshaleka",
+    "profile": "Inshina Yandu",
+    "auditLog": "Ifwa ya Bukomo",
+    "auditSummary": "Ifwa ya Bukomo (fwa fwa)",
+    "auditExport": "Sendeni Ifwa ya Bukomo",
+    "backupHealth": "Ubuyo bwa Backup",
+    "sessions": "Ifwa ya Mukwesu",
+    "settings": "Amaseti",
+    "security": "Ukuketeketwa"
+  },
+  "settings": {
+    "title": "Amaseti ya Mees",
+    "subtitle": "Amaseti yaba kufuma konse.",
+    "lastUpdated": "Yasandululwa {{datetime}}",
+    "adminBadge": "Imibele ya administrator fye",
+    "cardTitle": "Amaseti ya Mees",
+    "cardDescription": "Ayatila mu Point of Sale, Reports, na Member Portal.",
+    "loading": "Leza ikaite…",
+    "labels": {
+      "messName": "Inshina ya Mees",
+      "currencyCode": "Lemba ya Indalama (ISO 4217)",
+      "openingFloat": "Indalama ya pa ntanshi ({{currency}})",
+      "recoveryTarget": "CHIT pakuyabula (%)",
+      "vat": "VAT / Tax (%)",
+      "holidayMode": "Holiday mode (ikaka CHIT isapitwa)"
+    },
+    "save": "Sungeni amaseti",
+    "saved": "Amaseti yasungenwa",
+    "saveFailed": "Ukusunga amaseti kwaile"
+  },
+  "language": {
+    "label": "Ululimi",
+    "english": "Cifulanga",
+    "bemba": "Icibemba"
+  },
+  "common": {
+    "signOut": "Fumamo"
+  }
+}
